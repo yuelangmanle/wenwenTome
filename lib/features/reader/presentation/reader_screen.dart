@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:epub_view/epub_view.dart';
 import 'package:pdfx/pdfx.dart';
 import '../../library/data/book_model.dart';
+import '../../annotations/annotation_service.dart';
+import '../../annotations/presentation/annotations_screen.dart';
+import '../../search/presentation/search_screen.dart';
+
 
 class ReaderScreen extends StatefulWidget {
   final Book book;
@@ -134,6 +138,40 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              // 书内全文搜索
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.white),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => SearchScreen(book: widget.book),
+                )),
+              ),
+              // 书签
+              IconButton(
+                icon: const Icon(Icons.bookmark_outline, color: Colors.white),
+                onPressed: () async {
+                  final service = AnnotationService();
+                  await service.addBookmark(
+                    bookId: widget.book.id,
+                    title: '书签 · ${widget.book.title}',
+                    position: 0,
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('书签已添加 🔖'), duration: Duration(seconds: 1)),
+                    );
+                  }
+                },
+              ),
+              // 查看笔记
+              IconButton(
+                icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.white),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => AnnotationsScreen(
+                    bookId: widget.book.id,
+                    bookTitle: widget.book.title,
+                  ),
+                )),
               ),
               IconButton(
                 icon: const Icon(Icons.text_fields, color: Colors.white),
