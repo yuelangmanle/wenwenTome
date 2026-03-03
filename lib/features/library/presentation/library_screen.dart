@@ -18,16 +18,10 @@ class LibraryScreen extends ConsumerWidget {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: '同步',
-            onPressed: () => context.push('/sync'),
-          ),
-          IconButton(
             icon: const Icon(Icons.search),
             tooltip: '全文搜索',
             onPressed: () => context.push('/search'),
           ),
-          IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () {}),
         ],
       ),
       body: booksAsync.when(

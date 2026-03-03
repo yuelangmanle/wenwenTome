@@ -4,22 +4,24 @@ import 'annotation_service.dart';
 final annotationServiceProvider = Provider<AnnotationService>((ref) => AnnotationService());
 
 // ── 高亮笔记 ──
+// 使用 FutureProvider.family 来按书 ID 加载笔记（简单可靠）
 
 final annotationsProvider = FutureProvider.family<List<Annotation>, String>(
   (ref, bookId) => ref.read(annotationServiceProvider).loadAnnotations(bookId),
 );
 
-final annotationsNotifierProvider =
-    AsyncNotifierProviderFamily<AnnotationsNotifier, List<Annotation>, String>(
-  AnnotationsNotifier.new,
-);
+// 用于写操作的 StateNotifier，按书 ID 分组
+final annotationActionsProvider = Provider<AnnotationActions>((ref) {
+  return AnnotationActions(ref.read(annotationServiceProvider), ref);
+});
 
-class AnnotationsNotifier extends FamilyAsyncNotifier<List<Annotation>, String> {
-  @override
-  Future<List<Annotation>> build(String bookId) =>
-      ref.read(annotationServiceProvider).loadAnnotations(bookId);
+class AnnotationActions {
+  final AnnotationService _service;
+  final Ref _ref;
+  AnnotationActions(this._service, this._ref);
 
   Future<void> add({
+    required String bookId,
     required String selectedText,
     String? note,
     HighlightColor color = HighlightColor.yellow,
@@ -27,8 +29,8 @@ class AnnotationsNotifier extends FamilyAsyncNotifier<List<Annotation>, String> 
     int cfiEnd = 0,
     int pageNumber = 0,
   }) async {
-    await ref.read(annotationServiceProvider).addAnnotation(
-      bookId: arg,
+    await _service.addAnnotation(
+      bookId: bookId,
       selectedText: selectedText,
       note: note,
       color: color,
@@ -36,26 +38,22 @@ class AnnotationsNotifier extends FamilyAsyncNotifier<List<Annotation>, String> 
       cfiEnd: cfiEnd,
       pageNumber: pageNumber,
     );
-    ref.invalidateSelf();
-    await future;
+    _ref.invalidate(annotationsProvider(bookId));
   }
 
-  Future<void> update(String id, {String? note, HighlightColor? color}) async {
-    await ref.read(annotationServiceProvider).updateAnnotation(id, note: note, color: color);
-    ref.invalidateSelf();
-    await future;
+  Future<void> update(String bookId, String id, {String? note, HighlightColor? color}) async {
+    await _service.updateAnnotation(id, note: note, color: color);
+    _ref.invalidate(annotationsProvider(bookId));
   }
 
-  Future<void> delete(String id) async {
-    await ref.read(annotationServiceProvider).deleteAnnotation(id);
-    ref.invalidateSelf();
-    await future;
+  Future<void> delete(String bookId, String id) async {
+    await _service.deleteAnnotation(id);
+    _ref.invalidate(annotationsProvider(bookId));
   }
 }
 
 // ── 书签 ──
 
-final bookmarksProvider =
-    FutureProvider.family<List<Bookmark>, String>(
+final bookmarksProvider = FutureProvider.family<List<Bookmark>, String>(
   (ref, bookId) => ref.read(annotationServiceProvider).loadBookmarks(bookId),
 );

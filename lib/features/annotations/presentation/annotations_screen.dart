@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'annotation_service.dart';
-import 'annotation_providers.dart';
+import '../annotation_service.dart';
+import '../annotation_providers.dart';
 
 /// 书籍笔记总览页面 - 展示某本书的所有高亮和书签
 class AnnotationsScreen extends ConsumerWidget {
@@ -11,7 +11,7 @@ class AnnotationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final annotationsAsync = ref.watch(annotationsNotifierProvider(bookId));
+    final annotationsAsync = ref.watch(annotationsProvider(bookId));
     final bookmarksAsync = ref.watch(bookmarksProvider(bookId));
 
     return DefaultTabController(
@@ -125,8 +125,8 @@ class _AnnotationCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18),
                 color: Colors.grey,
-                onPressed: () => ref.read(annotationsNotifierProvider(annotation.bookId).notifier)
-                    .delete(annotation.id),
+                onPressed: () => ref.read(annotationActionsProvider)
+                    .delete(annotation.bookId, annotation.id),
               ),
             ],
           ),
