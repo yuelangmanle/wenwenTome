@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../data/book_model.dart';
 import '../providers/library_providers.dart';
 import '../../reader/presentation/reader_screen.dart';
@@ -16,6 +17,11 @@ class LibraryScreen extends ConsumerWidget {
         title: const Text('我的书架', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: '同步',
+            onPressed: () => context.push('/sync'),
+          ),
           IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () {}),
           IconButton(icon: const Icon(Icons.search), onPressed: () {}),
         ],
