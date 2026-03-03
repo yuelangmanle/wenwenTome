@@ -1,0 +1,67 @@
+﻿Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 92.0.0 (97.0.0 available)
+  analyzer 9.0.0 (11.0.0 available)
+  archive 3.6.1 (4.0.9 available)
+  extension 0.6.0 (1.0.0 available)
+  image 3.3.0 (4.8.0 available)
+  js 0.6.7 (0.7.2 available)
+  matcher 0.12.18 (0.12.19 available)
+  meta 1.17.0 (1.18.1 available)
+  test 1.28.0 (1.30.0 available)
+  test_api 0.7.8 (0.7.10 available)
+  test_core 0.6.14 (0.6.16 available)
+  win32 5.15.0 (6.0.0 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing wenwen_tome...                                        
+
+warning - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart' - lib\app\router.dart:2:8 - unused_import
+  error - The argument type 'CardTheme' can't be assigned to the parameter type 'CardThemeData?'.  - lib\app\theme.dart:30:18 - argument_type_not_assignable
+  error - The argument type 'CardTheme' can't be assigned to the parameter type 'CardThemeData?'.  - lib\app\theme.dart:80:18 - argument_type_not_assignable
+   info - Unnecessary use of multiple underscores - lib\features\annotations\presentation\annotations_screen.dart:64:33 - unnecessary_underscores
+warning - Unused import: 'dart:convert' - lib\features\library\data\book_model.dart:1:8 - unused_import
+warning - The value of the local variable 'file' isn't used - lib\features\library\data\library_service.dart:45:11 - unused_local_variable
+warning - Unused import: '../library/data/book_model.dart' - lib\features\metadata\metadata_service.dart:4:8 - unused_import
+warning - Unused import: '../library/data/library_service.dart' - lib\features\metadata\metadata_service.dart:5:8 - unused_import
+warning - Unused import: 'dart:convert' - lib\features\pkm\obsidian_sync_service.dart:2:8 - unused_import
+warning - Unused import: 'package:path_provider/path_provider.dart' - lib\features\pkm\obsidian_sync_service.dart:3:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\reader\presentation\reader_screen.dart:160:42 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\features\search\presentation\search_screen.dart:104:35 - unnecessary_underscores
+warning - Unused import: '../../pkm/obsidian_sync_service.dart' - lib\features\settings\presentation\settings_screen.dart:3:8 - unused_import
+warning - Unused import: '../../translation/translation_service.dart' - lib\features\settings\presentation\settings_screen.dart:4:8 - unused_import
+warning - Unused import: '../../metadata/metadata_service.dart' - lib\features\settings\presentation\settings_screen.dart:6:8 - unused_import
+warning - The value of the local variable 'theme' isn't used - lib\features\settings\presentation\settings_screen.dart:30:11 - unused_local_variable
+  error - Target of URI doesn't exist: 'sync_providers.dart' - lib\features\sync\presentation\sync_screen.dart:4:8 - uri_does_not_exist
+  error - Undefined name 'syncServerStateProvider' - lib\features\sync\presentation\sync_screen.dart:12:35 - undefined_identifier
+  error - Undefined name 'syncServerStateProvider' - lib\features\sync\presentation\sync_screen.dart:55:50 - undefined_identifier
+  error - The function 'StateNotifierProvider' isn't defined - lib\features\sync\sync_providers.dart:17:33 - undefined_function
+  error - Classes can only extend other classes - lib\features\sync\sync_providers.dart:41:34 - extends_non_class
+  error - Too many positional arguments: 0 expected, but 1 found - lib\features\sync\sync_providers.dart:44:44 - extra_positional_arguments
+  error - Undefined name 'state' - lib\features\sync\sync_providers.dart:49:5 - undefined_identifier
+  error - Undefined name 'state' - lib\features\sync\sync_providers.dart:49:13 - undefined_identifier
+  error - Undefined name 'state' - lib\features\sync\sync_providers.dart:54:5 - undefined_identifier
+  error - Undefined name 'state' - lib\features\sync\sync_providers.dart:54:13 - undefined_identifier
+  error - Undefined name 'state' - lib\features\sync\sync_providers.dart:57:28 - undefined_identifier
+warning - The value of the field '_serviceType' isn't used - lib\features\sync\sync_service.dart:13:23 - unused_field
+warning - The value of the field '_serviceName' isn't used - lib\features\sync\sync_service.dart:14:23 - unused_field
+  error - Target of URI doesn't exist: '../../features/webnovel/scraper_service.dart' - lib\features\webnovel\presentation\webnovel_screen.dart:3:8 - uri_does_not_exist
+  error - The method 'WebNovelScraper' isn't defined for the type '_WebNovelScreenState' - lib\features\webnovel\presentation\webnovel_screen.dart:15:20 - undefined_method
+  error - The name 'WebChapter' isn't a type, so it can't be used as a type argument - lib\features\webnovel\presentation\webnovel_screen.dart:17:8 - non_type_as_type_argument
+  error - Undefined name 'WebNovelScraper' - lib\features\webnovel\presentation\webnovel_screen.dart:25:23 - undefined_identifier
+  error - Undefined name 'WebNovelScraper' - lib\features\webnovel\presentation\webnovel_screen.dart:62:24 - undefined_identifier
+  error - Undefined class 'WebChapter' - lib\features\webnovel\presentation\webnovel_screen.dart:144:29 - undefined_class
+warning - Unused import: 'dart:convert' - lib\features\webnovel\scraper_service.dart:1:8 - unused_import
+
+flutter : 36 issues found. (ran in 15.1s)
+所在位置 行:1 字符: 1
++ flutter analyze 2>&1 | Out-File -FilePath "e
+:\Antigavity program\book ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( 
+   36 issues found. (ran in 15.1s):String) [  
+  ], RemoteException
+    + FullyQualifiedErrorId : NativeCommandEr 
+   ror
+ 

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../pkm/obsidian_sync_service.dart';
-import '../../translation/translation_service.dart';
 import '../../webnovel/scraper_service.dart';
-import '../../metadata/metadata_service.dart';
 
 /// 应用全局设置页面
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -27,7 +24,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('设置', style: TextStyle(fontWeight: FontWeight.bold)),

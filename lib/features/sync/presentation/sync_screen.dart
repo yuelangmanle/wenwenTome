@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'sync_providers.dart';
+import '../sync_providers.dart';
 
 /// 同步管理界面 - 展示 QR 码 + 开关服务
 class SyncScreen extends ConsumerWidget {

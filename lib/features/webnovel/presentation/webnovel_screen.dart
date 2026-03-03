@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/webnovel/scraper_service.dart';
+import '../scraper_service.dart';
 
 /// 网文抓取界面 - 搜索 + 章节浏览
 class WebNovelScreen extends ConsumerStatefulWidget {

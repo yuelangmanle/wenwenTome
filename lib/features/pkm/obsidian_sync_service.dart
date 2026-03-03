@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
 import '../annotations/annotation_service.dart';
 
 /// Obsidian PKM 双向同步服务

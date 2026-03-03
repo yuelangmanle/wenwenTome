@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/library/presentation/library_screen.dart';
 import '../features/sync/presentation/sync_screen.dart';

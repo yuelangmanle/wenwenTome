@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../library/data/book_model.dart';
-import '../library/data/library_service.dart';
 
 /// 在线元数据补全服务（豆瓣 + OpenLibrary）
 class MetadataService {

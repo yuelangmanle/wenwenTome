@@ -14,8 +14,8 @@ final syncServerProvider = Provider<SyncServer>((ref) {
 final libraryServiceProvider = Provider<LibraryService>((ref) => LibraryService());
 
 // ─── 服务器运行状态 ───
-final syncServerStateProvider = StateNotifierProvider<SyncServerNotifier, SyncServerState>(
-  (ref) => SyncServerNotifier(ref.read(syncServerProvider)),
+final syncServerStateProvider = NotifierProvider<SyncServerNotifier, SyncServerState>(
+  SyncServerNotifier.new,
 );
 
 class SyncServerState {
@@ -38,19 +38,19 @@ class SyncServerState {
   String? get connectUrl => localIp != null ? 'wenwentome://$localIp:$port' : null;
 }
 
-class SyncServerNotifier extends StateNotifier<SyncServerState> {
-  final SyncServer _server;
-
-  SyncServerNotifier(this._server) : super(const SyncServerState());
+class SyncServerNotifier extends Notifier<SyncServerState> {
+  @override
+  SyncServerState build() => const SyncServerState();
 
   Future<void> start() async {
-    await _server.startServer();
-    final ip = await _server.getLocalIp();
+    final server = ref.read(syncServerProvider);
+    await server.startServer();
+    final ip = await server.getLocalIp();
     state = state.copyWith(isRunning: true, localIp: ip);
   }
 
   Future<void> stop() async {
-    await _server.stopServer();
+    await ref.read(syncServerProvider).stopServer();
     state = state.copyWith(isRunning: false);
   }
 
