@@ -1,5 +1,5 @@
 name: wenwen_tome
-description: "A new Flutter project."
+description: "文文Tome — 本地优先跨平台电子书阅读器，支持 Windows & Android"
 publish_to: 'none'
 version: 1.0.0+1
 

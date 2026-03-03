@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "buildNumber": 1,
+  "releaseDate": "2026-03-03",
+  "codename": "初见",
+  "platform": {
+    "windows": "1.0.0+1",
+    "android": "1.0.0+1"
+  }
+}
