@@ -383,6 +383,70 @@ void main() {
     },
   );
 
+  test(
+    'falls back to a single chapter when detail page already has content',
+    () async {
+      final longBody = List.filled(
+        18,
+        '山风吹过旧桥，少年沿着河岸慢慢走，心里想着那本迟迟没有写完的书。',
+      ).join();
+      final client = _MockHttpClient({
+        'https://single.example.com/book/3': (_) => _MockHttpResponse(
+          headers: const <String, String>{
+            'content-type': 'text/html; charset=utf-8',
+          },
+          body:
+              '''
+          <html>
+            <body>
+              <h1 class="title">单页正文样本</h1>
+              <div class="article">$longBody</div>
+            </body>
+          </html>
+        ''',
+        ),
+      });
+      final repository = await createRepository(
+        client,
+        retryDelay: (_) async {},
+      );
+
+      await repository.saveSource(
+        const WebNovelSource(
+          id: 'single_page',
+          name: 'Single Page',
+          baseUrl: 'https://single.example.com',
+          detail: BookSourceDetailRule(
+            titleRule: SelectorRule(expression: '.title'),
+          ),
+          content: BookSourceContentRule(
+            contentRule: SelectorRule(expression: '.article'),
+          ),
+          search: BookSourceSearchRule(
+            method: HttpMethod.get,
+            pathTemplate: '',
+          ),
+          builtin: false,
+        ),
+      );
+
+      final meta = await repository.addBookFromSearchResult(
+        const WebNovelSearchResult(
+          sourceId: 'single_page',
+          title: '单页正文样本',
+          detailUrl: 'https://single.example.com/book/3',
+        ),
+      );
+
+      final chapters = await repository.getChapters(meta.id, refresh: true);
+      final content = await repository.getChapterContent(meta.id, 0);
+
+      expect(chapters, hasLength(1));
+      expect(chapters.single.title, '正文');
+      expect(content.text, contains('山风吹过旧桥'));
+    },
+  );
+
   test('retries chapter sync and marks synced after later success', () async {
     var detailCalls = 0;
     _MockHttpResponse retryDetailHandler(http.BaseRequest _) {
