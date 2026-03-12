@@ -18,7 +18,7 @@ void main() {
       final result = BookTextLoader.decodeBytes(bytes);
 
       expect(result.text, '圣墟 第十章');
-      expect(result.encoding, 'gbk');
+      expect(result.encoding, 'gb18030');
     });
 
     test('handles utf-16 text with bom', () {
@@ -27,6 +27,14 @@ void main() {
 
       expect(result.text, '第十');
       expect(result.encoding, 'utf-16le');
+    });
+
+    test('prefers utf-8 for normal chinese prose without bom', () {
+      const text = '第一章 山风穿过旧城，少年抬头看见天边的云，心里忽然安静下来。';
+      final result = BookTextLoader.decodeBytes(utf8.encode(text));
+
+      expect(result.text, text);
+      expect(result.encoding, 'utf-8');
     });
   });
 }

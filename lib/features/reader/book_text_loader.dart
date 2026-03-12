@@ -24,6 +24,8 @@ class BookTextLoader {
   static const _utf16BeBom = [0xFE, 0xFF];
   static const _headerProbeSize = 32768;
   static const _previewProbeSize = 262144;
+  static const String _commonChineseChars =
+      '的一是在不了有人这中大来上国个到说们为子和你地出道也时年得就那要下以生会自着去之过家学对可里后小心多天而能好都然没日于起还发成事只作当想看文无开手十用主行方又如前所本见经头面公同三已老从动两长知民样现分将进定实';
 
   static Future<DecodedTextResult> readTextFile(String filePath) async {
     return Isolate.run(() async {
@@ -290,7 +292,9 @@ class BookTextLoader {
     var whitespaceCount = 0;
     var asciiWordCount = 0;
     var cjkCount = 0;
+    var commonChineseCount = 0;
     var latinSupplementCount = 0;
+    var punctuationCount = 0;
     var suspiciousCount = 0;
     for (final rune in text.runes) {
       final isWhitespace = rune == 0x09 || rune == 0x0A || rune == 0x0D;
@@ -304,6 +308,9 @@ class BookTextLoader {
       if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
           (rune >= 0x3400 && rune <= 0x4DBF)) {
         cjkCount++;
+        if (_commonChineseChars.contains(String.fromCharCode(rune))) {
+          commonChineseCount++;
+        }
         continue;
       }
       if ((rune >= 0x30 && rune <= 0x39) ||
@@ -311,6 +318,9 @@ class BookTextLoader {
           (rune >= 0x61 && rune <= 0x7A)) {
         asciiWordCount++;
         continue;
+      }
+      if (_isCommonCjkPunctuation(rune)) {
+        punctuationCount++;
       }
       if (rune >= 0x80 && rune <= 0xFF) {
         latinSupplementCount++;
@@ -324,15 +334,40 @@ class BookTextLoader {
     final cjkRatio = cjkCount / runeCount;
     final asciiRatio = asciiWordCount / runeCount;
     final whitespaceRatio = whitespaceCount / runeCount;
+    final commonChineseRatio = commonChineseCount / runeCount;
     final latinSupplementRatio = latinSupplementCount / runeCount;
+    final punctuationRatio = punctuationCount / runeCount;
     final suspiciousRatio = suspiciousCount / runeCount;
+    final sparseCommonChinesePenalty =
+        cjkRatio > 0.35 && commonChineseRatio < 0.05 ? 0.9 : 0.0;
 
     return (cjkRatio * 1.8) +
         (asciiRatio * 0.7) +
         (whitespaceRatio * 0.25) -
+        (sparseCommonChinesePenalty) +
+        (commonChineseRatio * 2.4) +
+        (punctuationRatio * 0.4) -
         (controlRatio * 6.0) -
         (latinSupplementRatio * 2.5) -
         (suspiciousRatio * 4.5);
+  }
+
+  static bool _isCommonCjkPunctuation(int rune) {
+    return rune == 0x3002 ||
+        rune == 0xFF0C ||
+        rune == 0xFF01 ||
+        rune == 0xFF1F ||
+        rune == 0xFF1A ||
+        rune == 0xFF1B ||
+        rune == 0x3001 ||
+        rune == 0x201C ||
+        rune == 0x201D ||
+        rune == 0x300A ||
+        rune == 0x300B ||
+        rune == 0x300C ||
+        rune == 0x300D ||
+        rune == 0xFF08 ||
+        rune == 0xFF09;
   }
 
   static bool _isSuspiciousMojibakeRune(int rune) {
