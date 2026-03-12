@@ -42,7 +42,10 @@ migrate_working_dir/
 .tools/
 tmp/
 tools/
+!tools/ChineseSimplified.isl
 downloads/
+!lib/core/downloads/
+!lib/core/downloads/*.dart
 releases/
 assets/local_tts/kokoro-int8-multi-lang-v1_1/
 assets/local_tts/vits-icefall-zh-aishell3/

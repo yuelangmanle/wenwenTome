@@ -1,5 +1,5 @@
 ﻿#define MyAppName "文文Tome"
-#define MyAppVersion "2.6.11"
+#define MyAppVersion "2.6.12"
 #define MyAppPublisher "com.wenwentome"
 #define MyAppExeName "wenwen_tome.exe"
 
@@ -11,8 +11,8 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputDir=releases\2.6.11
-OutputBaseFilename=wenwen_tome_windows_2.6.11_setup
+OutputDir=releases\2.6.12
+OutputBaseFilename=wenwen_tome_windows_2.6.12_setup
 SetupIconFile=windows\runner\resources\app_icon.ico
 Compression=lzma
 SolidCompression=yes

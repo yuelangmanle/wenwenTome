@@ -53,7 +53,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   static const int _maxPagedSectionChars = 220000;
   static const int _quickScrollChunkChars = 180000;
   static const int _deferTextTocThreshold = 280000;
-  static const int _largeTxtLazyBytes = 8 * 1024 * 1024;
+  static const int _largeTxtLazyBytes = 24 * 1024 * 1024;
   static const int _largeTxtLazyChars = 6000000;
   static const int _largeTxtPreviewBytes = 256 * 1024;
   static const double _tapCancelDistance = 36;
@@ -297,8 +297,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!secondsPerProgress.isFinite) {
       return '';
     }
-    final remainingSeconds = ((1 - progress).clamp(0.0, 1.0)) *
-        secondsPerProgress;
+    final remainingSeconds =
+        ((1 - progress).clamp(0.0, 1.0)) * secondsPerProgress;
     if (remainingSeconds <= 0 || !remainingSeconds.isFinite) {
       return '';
     }
@@ -372,9 +372,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_txtContent.isEmpty && _textChunks.isEmpty) {
       return;
     }
-    if (next.readingMode != 'scroll' &&
-        _autoScrollForLargeTxt &&
-        !_fullTextLoaded) {
+    if (next.readingMode != 'scroll' && !_fullTextLoaded) {
       await _prepareFullTextForPaging();
       if (!_fullTextLoaded) {
         return;
@@ -382,8 +380,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     final totalLength = _effectiveTextLength;
     final offset = _currentTextOffset().clamp(0, totalLength);
-    _textProgress =
-        totalLength == 0 ? 0 : (offset / totalLength).clamp(0.0, 1.0);
+    _textProgress = totalLength == 0
+        ? 0
+        : (offset / totalLength).clamp(0.0, 1.0);
     if (next.readingMode == 'scroll') {
       await _ensureTextChunksLoaded();
       await _waitForNextFrame();
@@ -406,9 +405,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('全文仍在后台加载中，请稍后再切换分页')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('全文仍在后台加载中，请稍后再切换分页')));
       return;
     }
     if (_fullTextLoaded &&
@@ -422,9 +421,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('正在准备分页内容，请稍候…')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('正在准备分页内容，请稍候…')));
     setState(() => _loading = true);
     await Future<void>.delayed(const Duration(milliseconds: 16));
     final buffer = StringBuffer();
@@ -736,8 +735,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final contentLength = _txtContent.length;
     final hasToc = _textSections.length > 1;
     _forceScrollTextView =
-        _autoScrollForLargeTxt ||
-        (!hasToc && contentLength >= _forceScrollEmergencyLength);
+        !hasToc && contentLength >= _forceScrollEmergencyLength;
     if (_forceScrollTextView) {
       final tip = _autoScrollForLargeTxt
           ? '检测到大文本，已自动切换为滚动阅读模式，可在提示中切回分页。'
@@ -794,9 +792,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Future<void> _ensureTextChunksLoaded() async {
     if (_txtContent.isEmpty) {
-      return;
-    }
-    if (_autoScrollForLargeTxt && _textChunks.isNotEmpty) {
       return;
     }
     if (_textChunkBuildTask != null) {
@@ -1115,7 +1110,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : (section.endOffset - 1).clamp(section.startOffset, section.endOffset);
     await _pagedTextViewKey.currentState?.jumpToOffset(
       targetOffset,
-      animated: true,
+      animated: false,
     );
     return true;
   }
@@ -1184,8 +1179,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _textChunkRequestId++;
     _textTocRequestId++;
     _txtLazyRequestId++;
-    final initialReadingMode =
-        ref.read(readerSettingsProvider).readingMode;
+    final initialReadingMode = ref.read(readerSettingsProvider).readingMode;
 
     final openContext = <String, Object?>{
       'book_id': widget.book.id,
@@ -1227,8 +1221,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 _metaText = 'EPUB 已启用备用解析通道';
               }
               _rebuildTextRenderingState();
-              if (_forceScrollTextView ||
-                  initialReadingMode == 'scroll') {
+              if (_forceScrollTextView || initialReadingMode == 'scroll') {
                 await _ensureTextChunksLoaded();
               }
               break;
@@ -1240,7 +1233,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               _pdfFilePath = resolved.filePath;
               _txtToc = probe.pdfToc;
               _pdfPageCount = probe.pdfPageCount;
-              final storedPage = resolved.lastPosition <= 0 ? 1 : resolved.lastPosition;
+              final storedPage = resolved.lastPosition <= 0
+                  ? 1
+                  : resolved.lastPosition;
               _pdfInitialPageNumber = storedPage
                   .clamp(1, math.max(1, _pdfPageCount))
                   .toInt();
@@ -1250,7 +1245,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             case BookFormat.txt:
               final fileSize = await _safeFileSize(resolved.filePath);
               final shouldLazy = fileSize > _largeTxtLazyBytes;
-              _autoScrollForLargeTxt = fileSize >= _largeTxtLazyBytes;
+              _autoScrollForLargeTxt = false;
               await AppRunLogService.instance.logEvent(
                 action: 'reader.txt.load',
                 result: 'start',
@@ -1309,8 +1304,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 _txtTocDeferred = probe.txtTocDeferred;
                 _metaText = 'TXT 编码：${probe.txtEncoding}';
                 _rebuildTextRenderingState();
-                if (_forceScrollTextView ||
-                    initialReadingMode == 'scroll') {
+                if (_forceScrollTextView || initialReadingMode == 'scroll') {
                   await _ensureTextChunksLoaded();
                 }
                 _scheduleTextTocBuildIfNeeded();
@@ -1576,10 +1570,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       isScrollControlled: true,
       builder: (context) {
         final openedFormat = _openedFormat ?? widget.book.format;
-        final currentTocIndex =
-            openedFormat == BookFormat.pdf
-                ? _currentPdfTocIndex()
-                : _currentTextTocIndex();
+        final currentTocIndex = openedFormat == BookFormat.pdf
+            ? _currentPdfTocIndex()
+            : _currentTextTocIndex();
         final tocRowBase = _txtToc.isEmpty ? 0 : 2;
         final webRowBase = _txtToc.isEmpty ? 0 : (2 + _txtToc.length);
 
@@ -1590,8 +1583,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           focusRowIndex = webRowBase + 2 + _currentWebChapterIndex;
         }
 
-        final initialOffset =
-            focusRowIndex <= 1 ? 0.0 : ((focusRowIndex - 1) * 56.0);
+        final initialOffset = focusRowIndex <= 1
+            ? 0.0
+            : ((focusRowIndex - 1) * 56.0);
         final listController = ScrollController(
           initialScrollOffset: initialOffset,
         );
@@ -1799,12 +1793,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           ? 1.0
           : (targetIndex / (_webChapters.length - 1)).clamp(0.0, 1.0);
       _updateEtaBaseline(progress);
-      unawaited(
-        _updateReadingProgress(
-          targetIndex,
-          progress,
-        ),
-      );
+      unawaited(_updateReadingProgress(targetIndex, progress));
     } catch (error) {
       if (error is AppOperationCancelledException) {
         return;
@@ -1857,8 +1846,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_pdfFilePath == null || _pdfPageCount <= 0) {
       return;
     }
-    final safePage =
-        pageNumber.clamp(1, math.max(1, _pdfPageCount)).toInt();
+    final safePage = pageNumber.clamp(1, math.max(1, _pdfPageCount)).toInt();
     if (!_pdfViewerController.isReady) {
       _pdfPendingPageNumber = safePage;
       _pdfInitialPageNumber = safePage;
@@ -2014,7 +2002,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, _CacheRangeChoice.fromCurrent),
+            onPressed: () =>
+                Navigator.pop(context, _CacheRangeChoice.fromCurrent),
             child: const Text('从当前章开始'),
           ),
           TextButton(
@@ -2033,8 +2022,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(const SnackBar(content: Text('已开始后台缓存章节...')));
     try {
-      final startIndex =
-          choice == _CacheRangeChoice.all ? 0 : _currentWebChapterIndex;
+      final startIndex = choice == _CacheRangeChoice.all
+          ? 0
+          : _currentWebChapterIndex;
       final enqueuedCount = await _runEventTracker.track<int>(
         action: 'webnovel.cache_chapters',
         context: <String, Object?>{
@@ -2437,12 +2427,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                           spacing: 8,
                           runSpacing: 8,
                           children:
-                                  [
-                                        ('sheet', '仿真纸张'),
-                                        ('page_curl', '仿真翻页'),
-                                        ('slide', '滑动'),
-                                        ('fade', '淡入'),
-                                      ]
+                              [
+                                    ('sheet', '仿真纸张'),
+                                    ('page_curl', '仿真翻页'),
+                                    ('slide', '滑动'),
+                                    ('fade', '淡入'),
+                                  ]
                                   .map(
                                     (item) => ChoiceChip(
                                       label: Text(item.$2),
@@ -2468,7 +2458,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                             (entry) => DropdownMenuItem<String>(
                               value: entry.key,
                               child: Text(
-                                sanitizeUiText(entry.value, fallback: entry.value),
+                                sanitizeUiText(
+                                  entry.value,
+                                  fallback: entry.value,
+                                ),
                               ),
                             ),
                           ),
@@ -3640,10 +3633,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       );
     }
     if (_pdfFilePath != null) {
-      final initialPage = _pdfInitialPageNumber.clamp(
-        1,
-        math.max(1, _pdfPageCount),
-      ).toInt();
+      final initialPage = _pdfInitialPageNumber
+          .clamp(1, math.max(1, _pdfPageCount))
+          .toInt();
       return Padding(
         padding: const EdgeInsets.only(top: 56),
         child: PdfViewer.file(
@@ -3660,23 +3652,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               unawaited(_jumpToPdfPage(pending));
             },
             onPageChanged: (pageNumber) {
-              final resolved =
-                  (pageNumber ?? initialPage)
-                      .clamp(1, math.max(1, _pdfPageCount))
-                      .toInt();
+              final resolved = (pageNumber ?? initialPage)
+                  .clamp(1, math.max(1, _pdfPageCount))
+                  .toInt();
               if (resolved == _pdfPageNumber) {
                 return;
               }
               _pdfPageNumber = resolved;
               final progress = _pdfPageCount <= 1
                   ? 0.0
-                  : ((_pdfPageNumber - 1) / (_pdfPageCount - 1))
-                      .clamp(0.0, 1.0);
+                  : ((_pdfPageNumber - 1) / (_pdfPageCount - 1)).clamp(
+                      0.0,
+                      1.0,
+                    );
               _updateEtaBaseline(progress);
               _pdfProgressDebounce?.cancel();
-              _pdfProgressDebounce = Timer(const Duration(milliseconds: 140), () {
-                unawaited(_updateReadingProgress(_pdfPageNumber, progress));
-              });
+              _pdfProgressDebounce = Timer(
+                const Duration(milliseconds: 140),
+                () {
+                  unawaited(_updateReadingProgress(_pdfPageNumber, progress));
+                },
+              );
               if (mounted) {
                 setState(() {});
               }

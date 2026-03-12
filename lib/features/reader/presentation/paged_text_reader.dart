@@ -64,6 +64,7 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
   String? _layoutSignature;
   int _currentPage = 0;
   bool _isPaginating = false;
+  int _pageFlipEpoch = 0;
   int? _pendingJumpPage;
   int? _pendingJumpOffset;
   bool _pendingJumpAnimated = false;
@@ -158,8 +159,12 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
     ).pageIndexForOffset(localOffset);
     _pendingJumpPage = pageIndex;
     if (_usePageCurl) {
-      _ensurePageFlipController(_pages.length);
-      _pageFlipController?.goToPage(pageIndex);
+      setState(() {
+        _currentPage = pageIndex;
+        _pageFlipController = null;
+        _pageFlipItemCount = 0;
+        _pageFlipEpoch++;
+      });
       _handlePageChanged(pageIndex);
       return;
     }
@@ -189,12 +194,22 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
       if (target < 0 || target >= _pages.length) {
         return false;
       }
-      if (delta > 0) {
-        _pageFlipController?.nextPage();
-      } else if (delta < 0) {
-        _pageFlipController?.previousPage();
-      } else {
-        return false;
+      try {
+        if (delta > 0) {
+          _pageFlipController?.nextPage();
+        } else if (delta < 0) {
+          _pageFlipController?.previousPage();
+        } else {
+          return false;
+        }
+      } catch (_) {
+        setState(() {
+          _currentPage = target;
+          _pageFlipController = null;
+          _pageFlipItemCount = 0;
+          _pageFlipEpoch++;
+        });
+        _handlePageChanged(target);
       }
       return true;
     }
@@ -247,7 +262,9 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
       return ColoredBox(
         color: background,
         child: PageFlipWidget(
-          key: ValueKey<String?>('page_curl_${_layoutSignature ?? ''}_${_pages.length}'),
+          key: ValueKey<String?>(
+            'page_curl_${_layoutSignature ?? ''}_${_pages.length}_$_pageFlipEpoch$_currentPage',
+          ),
           controller: _pageFlipController,
           backgroundColor: background,
           initialIndex: _currentPage.clamp(0, _pages.length - 1),
@@ -379,7 +396,8 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
       widget.settings,
       color: Color(widget.settings.fgColor),
     );
-    final useIncremental = widget.text.length >= _incrementalPaginationThreshold;
+    final useIncremental =
+        widget.text.length >= _incrementalPaginationThreshold;
 
     if (!useIncremental) {
       final result = TextPaginator.paginate(
@@ -424,9 +442,9 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
         }
         if (!targetResolved && pages.last.endOffset >= preservedOffset) {
           targetResolved = true;
-          targetPage = TextPaginationResult(pages).pageIndexForOffset(
-            preservedOffset,
-          );
+          targetPage = TextPaginationResult(
+            pages,
+          ).pageIndexForOffset(preservedOffset);
         }
         setState(() {
           _pages = pages;
@@ -438,9 +456,9 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
     );
 
     if (!targetResolved) {
-      targetPage = TextPaginationResult(result.pages).pageIndexForOffset(
-        preservedOffset,
-      );
+      targetPage = TextPaginationResult(
+        result.pages,
+      ).pageIndexForOffset(preservedOffset);
     }
     _finalizePagination(
       pages: result.pages.isEmpty
@@ -472,6 +490,11 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
       _pages = pages;
       _currentPage = targetPage;
       _isPaginating = false;
+      if (_usePageCurl) {
+        _pageFlipController = null;
+        _pageFlipItemCount = 0;
+        _pageFlipEpoch++;
+      }
       _pendingJumpPage = null;
       _pendingJumpOffset = null;
       _pendingJumpAnimated = false;
@@ -482,8 +505,6 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
         return;
       }
       if (_usePageCurl) {
-        _ensurePageFlipController(pages.length);
-        _pageFlipController?.goToPage(targetPage);
         _handlePageChanged(targetPage);
         return;
       }
