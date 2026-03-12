@@ -779,6 +779,9 @@ class LocalTtsModelManager {
 
     for (final asset in assets) {
       final relativePath = asset.substring(prefix.length + 1);
+      if (!_isRequiredBundledAsset(model, relativePath)) {
+        continue;
+      }
       final data = await rootBundle.load(asset);
       final bytes = data.buffer.asUint8List(
         data.offsetInBytes,
@@ -788,6 +791,18 @@ class LocalTtsModelManager {
       await outFile.parent.create(recursive: true);
       await outFile.writeAsBytes(bytes, flush: true);
     }
+  }
+
+  bool _isRequiredBundledAsset(TtsModelConfig model, String relativePath) {
+    final normalized = relativePath.replaceAll('\\', '/');
+    for (final requiredPath in model.sherpaManifest.requiredPaths) {
+      final requiredNormalized = requiredPath.replaceAll('\\', '/');
+      if (normalized == requiredNormalized ||
+          normalized.startsWith('$requiredNormalized/')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<List<String>> _listBundledAssets(String prefix) async {

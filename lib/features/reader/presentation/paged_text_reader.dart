@@ -582,33 +582,18 @@ class ReaderPagedTextViewState extends State<ReaderPagedTextView> {
   Widget _buildPage(int index, TextPageSlice page) {
     final background = Color(widget.settings.bgColor);
     final foreground = Color(widget.settings.fgColor);
-    final pageColor = Color.alphaBlend(
-      foreground.withValues(alpha: 0.03),
-      background,
-    );
 
     return Padding(
       padding: _outerPadding,
       child: RepaintBoundary(
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: pageColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: foreground.withValues(alpha: 0.06)),
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-                color: Colors.black.withValues(alpha: 0.06),
-              ),
-            ],
-          ),
+          decoration: BoxDecoration(color: background),
           child: Padding(
             padding: _innerPadding,
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: SelectableText(
+                  child: Text(
                     page.displayText,
                     style: buildReaderTextStyle(
                       widget.settings,

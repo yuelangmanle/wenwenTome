@@ -567,7 +567,10 @@ Future<_EpubExtraction> _readEpubExtractionWithRecovery(String filePath) async {
         action: 'reader.epub.parse',
         result: 'fallback',
         durationMs: DateTime.now().difference(startedAt).inMilliseconds,
-        context: const <String, Object?>{'cache': 'miss', 'fallback_used': true},
+        context: const <String, Object?>{
+          'cache': 'miss',
+          'fallback_used': true,
+        },
       );
       return recovered;
     }
@@ -863,6 +866,9 @@ _EpubExtraction? _extractEpubArchiveFallback(List<int> bytes) {
   final toc = <ReaderTocEntry>[];
 
   for (final path in orderedPaths) {
+    if (_isLikelyEpubNavigationDocument(path)) {
+      continue;
+    }
     final entry = files[path];
     final bytes = entry?.content;
     if (bytes is! List<int> || bytes.isEmpty) {
@@ -872,6 +878,9 @@ _EpubExtraction? _extractEpubArchiveFallback(List<int> bytes) {
     final document = parse(BookTextLoader.decodeBytes(bytes).text);
     var title = _pickArchiveDocumentTitle(document, path);
     final text = ReaderDocumentProbe._extractReadableFallbackText(document);
+    if (_shouldSkipArchiveDocument(title: title, text: text, path: path)) {
+      continue;
+    }
     if (title.isEmpty && text.isEmpty) {
       continue;
     }
@@ -892,7 +901,11 @@ _EpubExtraction? _extractEpubArchiveFallback(List<int> bytes) {
 
   final content = buffer.toString().trim();
   if (content.isEmpty) {
-    return const _EpubExtraction(text: '', toc: <ReaderTocEntry>[], fallbackUsed: true);
+    return const _EpubExtraction(
+      text: '',
+      toc: <ReaderTocEntry>[],
+      fallbackUsed: true,
+    );
   }
 
   return _EpubExtraction(text: content, toc: toc, fallbackUsed: true);
@@ -1025,6 +1038,58 @@ String _pickArchiveDocumentTitle(dynamic document, String path) {
     }
   }
   return '';
+}
+
+bool _isLikelyEpubNavigationDocument(String path) {
+  final normalized = path.toLowerCase();
+  return normalized.contains('/toc') ||
+      normalized.contains('/nav') ||
+      normalized.endsWith('toc.xhtml') ||
+      normalized.endsWith('toc.html') ||
+      normalized.endsWith('nav.xhtml') ||
+      normalized.endsWith('nav.html') ||
+      normalized.contains('contents');
+}
+
+bool _shouldSkipArchiveDocument({
+  required String title,
+  required String text,
+  required String path,
+}) {
+  if (text.trim().isEmpty) {
+    return false;
+  }
+
+  final normalizedTitle = title.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  final normalizedText = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
+  final longLines = lines.where((line) => line.length >= 28).length;
+  final shortLines = lines.where((line) => line.length <= 18).length;
+
+  if (_isLikelyEpubNavigationDocument(path)) {
+    return longLines == 0 || shortLines >= longLines * 2;
+  }
+
+  if (normalizedTitle == '目录' ||
+      normalizedTitle == 'contents' ||
+      normalizedTitle == 'tableofcontents') {
+    return true;
+  }
+
+  if (normalizedText.length < 120 && shortLines >= 4 && longLines == 0) {
+    return true;
+  }
+
+  final bodyDensity = normalizedText.length / lines.length;
+  if (lines.length >= 8 && bodyDensity < 16 && longLines <= 1) {
+    return true;
+  }
+
+  return false;
 }
 
 class _EpubExtraction {
