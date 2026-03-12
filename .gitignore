@@ -58,6 +58,7 @@ dart_errors.txt
 .keys/
 *.jks
 *.keystore
+android/key.properties
 *.hprof
 *搜书大师*.apk*
 
