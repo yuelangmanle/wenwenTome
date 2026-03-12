@@ -1,4 +1,4 @@
-// Microsoft Visual C++ generated resource script.
+﻿// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 #include "resource.h"
@@ -32,7 +32,7 @@ END
 
 2 TEXTINCLUDE
 BEGIN
-    "#include ""winres.h""\r\n"
+    "#include \"\"winres.h\"\"\r\n"
     "\0"
 END
 
@@ -44,16 +44,12 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // Icon
 //
 
-// Icon with lowest ID value placed first to ensure application icon
-// remains consistent on all systems.
 IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -90,12 +86,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.wenwentome" "\0"
-            VALUE "FileDescription", "wenwen_tome" "\0"
+            VALUE "FileDescription", "文文Tome" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "wenwen_tome" "\0"
+            VALUE "InternalName", "文文Tome" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.wenwentome. All rights reserved." "\0"
             VALUE "OriginalFilename", "wenwen_tome.exe" "\0"
-            VALUE "ProductName", "wenwen_tome" "\0"
+            VALUE "ProductName", "文文Tome" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
@@ -108,14 +104,11 @@ END
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
-
-
 #ifndef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
-
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED

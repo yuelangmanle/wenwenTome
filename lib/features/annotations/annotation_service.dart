@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+
+import '../../core/storage/app_storage_paths.dart';
 
 enum HighlightColor { yellow, green, blue, pink, purple }
 
@@ -109,7 +110,7 @@ class AnnotationService {
   static final _uuid = Uuid();
 
   Future<File> _getFile(String name) async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getSafeApplicationDocumentsDirectory();
     return File('${dir.path}/wenwen_tome/$name');
   }
 

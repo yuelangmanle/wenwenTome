@@ -1,30 +1,28 @@
 import 'dart:io';
+
+import 'package:epubx/epubx.dart';
 import 'package:flutter/foundation.dart';
+import 'package:html/parser.dart' show parse;
+
 import '../library/data/book_model.dart';
+import '../reader/book_text_loader.dart';
+import '../reader/reader_pdf_service.dart';
 
-/// 章节条目
 class TocEntry {
-  final String title;
-  final int position;    // 字符偏移 / 页码
-  final int level;       // 嵌套级别（h1=1, h2=2...）
-  final List<TocEntry> children;
-
   const TocEntry({
     required this.title,
     required this.position,
     this.level = 1,
     this.children = const [],
   });
+
+  final String title;
+  final int position;
+  final int level;
+  final List<TocEntry> children;
 }
 
-/// 全文搜索结果
 class SearchResult {
-  final String bookId;
-  final String excerpt;     // 匹配周围的上下文片段
-  final int position;       // 匹配位置
-  final int pageNumber;
-  final String matchText;   // 精确匹配到的文字
-
   const SearchResult({
     required this.bookId,
     required this.excerpt,
@@ -32,60 +30,78 @@ class SearchResult {
     required this.pageNumber,
     required this.matchText,
   });
+
+  final String bookId;
+  final String excerpt;
+  final int position;
+  final int pageNumber;
+  final String matchText;
 }
 
-/// TXT 章节识别引擎（正则）
 class TextTocParser {
   static final _chapterRegex = RegExp(
-    r'^(第[零一二三四五六七八九十百千万\d]+[章节回集部卷]|Chapter\s+\d+|第\d+章|CHAPTER\s+\d+)',
+    r'^(第[零一二三四五六七八九十百千万两〇\d]+[章节卷回集部篇]|Chapter\s+\d+|CHAPTER\s+\d+)',
     multiLine: true,
     caseSensitive: false,
   );
 
   static List<TocEntry> parse(String content) {
     final matches = _chapterRegex.allMatches(content);
-    return matches.map((m) => TocEntry(
-      title: m.group(0)!.trim(),
-      position: m.start,
-    )).toList();
+    return matches
+        .map((m) => TocEntry(title: m.group(0)!.trim(), position: m.start))
+        .toList();
   }
 
-  static List<SearchResult> search(String bookId, String content, String query) {
-    if (query.isEmpty) return [];
+  static List<SearchResult> search(
+    String bookId,
+    String content,
+    String query,
+  ) {
+    if (query.isEmpty) {
+      return const <SearchResult>[];
+    }
     final results = <SearchResult>[];
     final lowerContent = content.toLowerCase();
     final lowerQuery = query.toLowerCase();
-    int idx = 0;
+    var index = 0;
 
     while (true) {
-      final pos = lowerContent.indexOf(lowerQuery, idx);
-      if (pos == -1) break;
+      final position = lowerContent.indexOf(lowerQuery, index);
+      if (position == -1) {
+        break;
+      }
 
-      // 截取前后 60 字作为摘要
-      final start = (pos - 60).clamp(0, content.length);
-      final end = (pos + query.length + 60).clamp(0, content.length);
+      final start = (position - 60).clamp(0, content.length);
+      final end = (position + query.length + 60).clamp(0, content.length);
       final excerpt = content.substring(start, end).replaceAll('\n', ' ');
 
-      results.add(SearchResult(
-        bookId: bookId,
-        excerpt: excerpt,
-        position: pos,
-        pageNumber: 0,
-        matchText: content.substring(pos, pos + query.length),
-      ));
+      results.add(
+        SearchResult(
+          bookId: bookId,
+          excerpt: excerpt,
+          position: position,
+          pageNumber: 0,
+          matchText: content.substring(position, position + query.length),
+        ),
+      );
 
-      idx = pos + 1;
-      if (results.length >= 50) break; // 最多返回50条
+      index = position + 1;
+      if (results.length >= 50) {
+        break;
+      }
     }
     return results;
   }
 }
 
-/// 书库全文索引服务（轻量级本地搜索）
 class FullTextSearch {
-  /// 对单本书进行全文搜索
-  static Future<List<SearchResult>> searchInBook(Book book, String query) async {
-    if (query.trim().isEmpty) return [];
+  static Future<List<SearchResult>> searchInBook(
+    Book book,
+    String query,
+  ) async {
+    if (query.trim().isEmpty) {
+      return const <SearchResult>[];
+    }
 
     return compute(_searchWorker, {
       'bookId': book.id,
@@ -95,7 +111,9 @@ class FullTextSearch {
     });
   }
 
-  static Future<List<SearchResult>> _searchWorker(Map<String, dynamic> args) async {
+  static Future<List<SearchResult>> _searchWorker(
+    Map<String, dynamic> args,
+  ) async {
     final bookId = args['bookId'] as String;
     final filePath = args['filePath'] as String;
     final format = args['format'] as String;
@@ -103,32 +121,68 @@ class FullTextSearch {
 
     try {
       if (format == 'txt') {
-        final content = await File(filePath).readAsString();
-        return TextTocParser.search(bookId, content, query);
+        final decoded = await BookTextLoader.readTextFile(filePath);
+        return TextTocParser.search(bookId, decoded.text, query);
       }
-      // EPUB/PDF 全文搜索需解包文本层，暂用文件名占位
-      return [
-        SearchResult(
-          bookId: bookId,
-          excerpt: '[$format 格式全文索引正在开发中...]',
-          position: 0,
-          pageNumber: 0,
-          matchText: query,
-        )
-      ];
+
+      if (format == 'epub') {
+        final bytes = await File(filePath).readAsBytes();
+        final epubBook = await EpubReader.readBook(bytes);
+        final results = <SearchResult>[];
+
+        if (epubBook.Chapters != null) {
+          for (var i = 0; i < epubBook.Chapters!.length; i++) {
+            final chapter = epubBook.Chapters![i];
+            final content = parse(chapter.HtmlContent ?? '').body?.text ?? '';
+            results.addAll(
+              TextTocParser.search(bookId, content, query).map(
+                (item) => SearchResult(
+                  bookId: item.bookId,
+                  excerpt: item.excerpt,
+                  position: i,
+                  pageNumber: i,
+                  matchText: item.matchText,
+                ),
+              ),
+            );
+            if (results.length >= 50) {
+              return results.take(50).toList(growable: false);
+            }
+          }
+        }
+        return results;
+      }
+
+      if (format == 'pdf') {
+        final matches = await ReaderPdfService.searchText(filePath, query);
+        return matches
+            .map(
+              (item) => SearchResult(
+                bookId: bookId,
+                excerpt: item.excerpt,
+                position: item.position,
+                pageNumber: item.pageNumber,
+                matchText: item.matchText,
+              ),
+            )
+            .toList(growable: false);
+      }
+
+      return const <SearchResult>[];
     } catch (_) {
-      return [];
+      return const <SearchResult>[];
     }
   }
 
-  /// TXT 书籍章节目录提取
   static Future<List<TocEntry>> extractToc(Book book) async {
-    if (book.format != BookFormat.txt) return [];
+    if (book.format != BookFormat.txt) {
+      return const <TocEntry>[];
+    }
     try {
-      final content = await File(book.filePath).readAsString();
-      return TextTocParser.parse(content);
+      final decoded = await BookTextLoader.readTextFile(book.filePath);
+      return TextTocParser.parse(decoded.text);
     } catch (_) {
-      return [];
+      return const <TocEntry>[];
     }
   }
 }

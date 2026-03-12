@@ -1,10 +1,10 @@
-{
-  "version": "1.0.0",
-  "buildNumber": 1,
-  "releaseDate": "2026-03-03",
-  "codename": "初见",
+﻿{
+  "version": "2.6.11",
+  "buildNumber": 38,
+  "releaseDate": "2026-03-11",
+  "codename": "全量收敛与网页阅读闭环",
   "platform": {
-    "windows": "1.0.0+1",
-    "android": "1.0.0+1"
+    "windows": "2.6.11+38",
+    "android": "2.6.11+38"
   }
 }

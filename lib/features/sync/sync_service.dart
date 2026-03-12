@@ -134,7 +134,7 @@ class SyncServer {
   Future<void> _startMdnsBroadcast() async {
     // multicast_dns 在 Windows 上支持有限，仅用于发现
     // 完整 mDNS 广播在 Android 端通过 NSD API 实现
-    debugPrint('[同步] mDNS 广播已标记（移动端通过 NSD 发现）');
+    debugPrint('[同步] mDNS 广播已标记: service=$_serviceName type=$_serviceType（移动端通过 NSD 发现）');
   }
 
   // ─── CORS 中间件 ───

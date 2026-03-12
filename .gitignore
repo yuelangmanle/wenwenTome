@@ -31,7 +31,35 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+**/build/
 /coverage/
+.android/
+.gradle/
+.cxx/
+**/.cxx/
+.cache/
+.tmp/
+.tools/
+tmp/
+tools/
+downloads/
+releases/**/*.apk
+*.apk
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.zip
+analysis*.txt
+analysis_cmd*.txt
+final_analysis.txt
+machine_analysis.txt
+dart_errors.txt
+.keys/
+*.jks
+*.keystore
+*.hprof
+*搜书大师*.apk*
 
 # Symbolication related
 app.*.symbols

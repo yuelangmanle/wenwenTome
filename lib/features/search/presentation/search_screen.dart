@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../library/data/book_model.dart';
+import '../../library/providers/library_providers.dart';
 import '../search_service.dart';
 
 /// 全文搜索界面
@@ -15,6 +16,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   List<SearchResult> _results = [];
+  Map<String, String> _bookTitles = {};
   bool _searching = false;
 
   @override
@@ -33,6 +35,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       List<SearchResult> results = [];
       if (widget.book != null) {
         results = await FullTextSearch.searchInBook(widget.book!, query);
+        _bookTitles = {widget.book!.id: widget.book!.title};
+      } else {
+        final books = await ref.read(booksProvider.future);
+        final titles = <String, String>{};
+        for (final book in books) {
+          titles[book.id] = book.title;
+          final partial = await FullTextSearch.searchInBook(book, query);
+          results.addAll(partial);
+          if (results.length >= 200) break;
+        }
+        _bookTitles = titles;
       }
       setState(() => _results = results);
     } finally {
@@ -101,8 +114,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         Expanded(
           child: ListView.separated(
             itemCount: _results.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (ctx, i) => _ResultTile(result: _results[i], query: _controller.text),
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (ctx, i) => _ResultTile(
+              result: _results[i],
+              query: _controller.text,
+              bookTitle: _bookTitles[_results[i].bookId],
+            ),
           ),
         ),
       ],
@@ -113,7 +130,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 class _ResultTile extends StatelessWidget {
   final SearchResult result;
   final String query;
-  const _ResultTile({required this.result, required this.query});
+  final String? bookTitle;
+  const _ResultTile({required this.result, required this.query, this.bookTitle});
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +141,13 @@ class _ResultTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       title: RichText(text: TextSpan(children: spans)),
-      subtitle: Text('位置: ${result.position}', style: const TextStyle(fontSize: 11)),
+      subtitle: Text(
+        bookTitle == null
+            ? '位置: ${result.position}'
+            : '《$bookTitle》 · 位置: ${result.position}',
+        style: const TextStyle(fontSize: 11),
+      ),
+      onTap: () => Navigator.pop(context, result),
     );
   }
 

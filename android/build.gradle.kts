@@ -1,7 +1,12 @@
 allprojects {
     repositories {
+        maven("https://storage.googleapis.com/download.flutter.io")
+        maven("https://maven.aliyun.com/repository/google")
+        maven("https://maven.aliyun.com/repository/central")
+        maven("https://maven.aliyun.com/repository/public")
         google()
         mavenCentral()
+        maven("https://jitpack.io")
     }
 }
 
