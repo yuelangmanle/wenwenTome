@@ -1,0 +1,110 @@
+name: wenwen_tome
+description: "文文Tome - 本地优先跨平台电子书阅读器，支持 Windows 与 Android"
+publish_to: 'none'
+version: 2.6.11+38
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^3.2.1
+  go_router: ^17.1.0
+  epub_view: ^3.2.0
+  pdfrx: ^1.1.20
+  file_picker: ^10.3.10
+  path_provider: ^2.1.5
+  uuid: ^4.5.3
+  multicast_dns: ^0.3.3
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.1.2
+  http: ^1.6.0
+  shared_preferences: ^2.5.4
+  html: ^0.15.6
+  epubx: ^4.0.0
+  archive: ^3.6.1
+  flutter_tts: ^4.2.5
+  flutter_open_chinese_convert: ^0.7.0
+  sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.3.4+4
+  path: ^1.9.1
+  turnable_page: ^0.0.1+1
+  page_flip: ^0.2.5+1
+  flutter_colorpicker: ^1.1.0
+  share_plus: ^12.0.1
+  audioplayers: ^6.6.0
+  permission_handler: ^12.0.1
+  battery_plus: ^6.0.0
+  flutter_markdown: ^0.7.7+1
+  flutter_inappwebview: ^6.1.5
+  dio: ^5.8.0
+  charset: ^2.0.1
+  rar: ^0.3.0
+  sherpa_onnx: ^1.12.28
+  llama_flutter_android: ^0.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.11.0
+
+dependency_overrides:
+  llama_flutter_android:
+    path: third_party/llama_flutter_android
+  pdfrx:
+    path: third_party/pdfrx
+  rar:
+    path: third_party/rar
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+      name_windows: winsqlite3
+      name: sqlite3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - CHANGELOG.md
+    - assets/local_tts/
+    - assets/webnovel/bundled_sources.json
+  fonts:
+    - family: MiSans
+      fonts:
+        - asset: assets/fonts/MiSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/MiSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/MiSans-Bold.ttf
+          weight: 700
+    - family: LXGWWenKai
+      fonts:
+        - asset: assets/fonts/LXGWWenKai-Light.ttf
+          weight: 300
+        - asset: assets/fonts/LXGWWenKai-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/LXGWWenKai-Bold.ttf
+          weight: 700
+    - family: LXGWWenKaiMono
+      fonts:
+        - asset: assets/fonts/LXGWWenKaiMono-Light.ttf
+          weight: 300
+        - asset: assets/fonts/LXGWWenKaiMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/LXGWWenKaiMono-Bold.ttf
+          weight: 700
+
+flutter_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "app_icon.png"
+  windows:
+    generate: true
+    image_path: "app_icon.png"
+    icon_size: 256
