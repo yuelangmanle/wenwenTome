@@ -2532,7 +2532,46 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       whereArgs: [webBookId],
       orderBy: 'chapter_index ASC',
     );
-    return synced.map(_chapterFromRow).toList();
+    if (synced.isNotEmpty) {
+      return synced.map(_chapterFromRow).toList();
+    }
+
+    final source = await _sourceForMeta(meta);
+    if (source == null) {
+      return const <WebChapterRecord>[];
+    }
+    return _ensureSinglePageFallbackChapter(db: db, meta: meta, source: source);
+  }
+
+  Future<List<WebChapterRecord>> _ensureSinglePageFallbackChapter({
+    required Database db,
+    required WebNovelBookMeta meta,
+    required WebNovelSource source,
+  }) async {
+    try {
+      final page = await _requestPage(meta.detailUrl, source: source);
+      final fallback = _buildSinglePageFallbackChapter(
+        page: page,
+        meta: meta,
+        source: source,
+      );
+      if (fallback.isEmpty) {
+        return const <WebChapterRecord>[];
+      }
+      final chapter = fallback.single;
+      await db.insert('web_chapters', {
+        'id': chapter.id,
+        'web_book_id': chapter.webBookId,
+        'source_id': chapter.sourceId,
+        'title': chapter.title,
+        'url': chapter.url,
+        'chapter_index': chapter.chapterIndex,
+        'updated_at': chapter.updatedAt?.millisecondsSinceEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      return fallback;
+    } catch (_) {
+      return const <WebChapterRecord>[];
+    }
   }
 
   Future<WebChapterContent?> getCachedChapterContent(String chapterId) async {
@@ -5651,6 +5690,33 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       return const <WebChapterRecord>[];
     }
     return chapters;
+  }
+
+  List<WebChapterRecord> _buildSinglePageFallbackChapter({
+    required _FetchedPage page,
+    required WebNovelBookMeta meta,
+    required WebNovelSource source,
+  }) {
+    final article = _extractReaderMode(page.document, page.requestUrl);
+    final text = _cleanText(article.contentText);
+    if (text.length < 240) {
+      return const <WebChapterRecord>[];
+    }
+    final title = meta.lastChapterTitle.ifEmpty('正文');
+    return <WebChapterRecord>[
+      WebChapterRecord(
+        id: _uuid.v5(
+          Namespace.url.value,
+          '${meta.id}:${source.id}:${page.requestUrl}:single',
+        ),
+        webBookId: meta.id,
+        sourceId: source.id,
+        title: title,
+        url: page.requestUrl.toString(),
+        chapterIndex: 0,
+        updatedAt: DateTime.now(),
+      ),
+    ];
   }
 
   bool _looksLikeChapterLink({required String title, required String url}) {
