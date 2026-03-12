@@ -65,9 +65,7 @@ class BookTextLoader {
     });
   }
 
-  static Stream<DecodedTextChunk> streamTextFileChunks(
-    String filePath,
-  ) async* {
+  static Stream<DecodedTextChunk> streamTextFileChunks(String filePath) async* {
     final file = File(filePath);
     final header = await _readHeaderBytes(file, _headerProbeSize);
     if (header.isEmpty) {
@@ -136,29 +134,31 @@ class BookTextLoader {
     }
 
     final inferredUtf16 = _tryDecodeUtf16WithoutBom(bytes);
-    if (inferredUtf16 != null && _looksReadable(inferredUtf16.text)) {
-      return inferredUtf16;
-    }
-
     final utf8Text = _tryDecode(
       () => utf8.decode(bytes, allowMalformed: false),
       encoding: 'utf-8',
     );
-    if (utf8Text != null && _looksReadable(utf8Text.text)) {
-      return utf8Text;
+    final gb18030Text = _tryDecode(
+      () => charset.gbk.decode(bytes),
+      encoding: 'gb18030',
+    );
+
+    final best = _pickBestDecode(<DecodedTextResult?>[
+      inferredUtf16,
+      utf8Text,
+      gb18030Text,
+    ]);
+    if (best != null) {
+      return best;
     }
 
-    final gbkText = _tryDecode(
-      () => charset.gbk.decode(bytes),
-      encoding: 'gbk',
-    );
-    if (gbkText != null && _looksReadable(gbkText.text)) {
-      return gbkText;
+    if (gb18030Text != null) {
+      return gb18030Text;
     }
 
     return DecodedTextResult(
-      text: latin1.decode(bytes, allowInvalid: true),
-      encoding: 'latin1-fallback',
+      text: utf8.decode(bytes, allowMalformed: true),
+      encoding: 'utf-8-lossy',
     );
   }
 
@@ -187,7 +187,7 @@ class BookTextLoader {
     if (encoding == 'utf-8' || encoding == 'utf-8-bom') {
       return const Utf8Decoder(allowMalformed: true);
     }
-    if (encoding == 'gbk') {
+    if (encoding == 'gbk' || encoding == 'gb18030') {
       return charset.gbk.decoder;
     }
     return latin1.decoder;
@@ -254,23 +254,96 @@ class BookTextLoader {
     return null;
   }
 
-  static bool _looksReadable(String text) {
-    if (text.trim().isEmpty) return false;
+  static DecodedTextResult? _pickBestDecode(
+    List<DecodedTextResult?> candidates,
+  ) {
+    DecodedTextResult? best;
+    var bestScore = double.negativeInfinity;
+    for (final candidate in candidates) {
+      if (candidate == null) {
+        continue;
+      }
+      final score = _readabilityScore(candidate.text);
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    return bestScore >= 0.12 ? best : null;
+  }
+
+  static double _readabilityScore(String text) {
+    if (text.trim().isEmpty) {
+      return -1;
+    }
     final replacementCount = '\uFFFD'.allMatches(text).length;
-    if (replacementCount > 0) return false;
+    if (replacementCount > 0) {
+      return -1;
+    }
 
     final runeCount = text.runes.length;
-    if (runeCount == 0) return false;
+    if (runeCount == 0) {
+      return -1;
+    }
 
     var controlCount = 0;
+    var whitespaceCount = 0;
+    var asciiWordCount = 0;
+    var cjkCount = 0;
+    var latinSupplementCount = 0;
+    var suspiciousCount = 0;
     for (final rune in text.runes) {
       final isWhitespace = rune == 0x09 || rune == 0x0A || rune == 0x0D;
+      if (isWhitespace || rune == 0x20) {
+        whitespaceCount++;
+      }
       if (!isWhitespace && rune < 0x20) {
         controlCount++;
+        continue;
+      }
+      if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
+          (rune >= 0x3400 && rune <= 0x4DBF)) {
+        cjkCount++;
+        continue;
+      }
+      if ((rune >= 0x30 && rune <= 0x39) ||
+          (rune >= 0x41 && rune <= 0x5A) ||
+          (rune >= 0x61 && rune <= 0x7A)) {
+        asciiWordCount++;
+        continue;
+      }
+      if (rune >= 0x80 && rune <= 0xFF) {
+        latinSupplementCount++;
+      }
+      if (_isSuspiciousMojibakeRune(rune)) {
+        suspiciousCount++;
       }
     }
 
-    return controlCount / runeCount < 0.02;
+    final controlRatio = controlCount / runeCount;
+    final cjkRatio = cjkCount / runeCount;
+    final asciiRatio = asciiWordCount / runeCount;
+    final whitespaceRatio = whitespaceCount / runeCount;
+    final latinSupplementRatio = latinSupplementCount / runeCount;
+    final suspiciousRatio = suspiciousCount / runeCount;
+
+    return (cjkRatio * 1.8) +
+        (asciiRatio * 0.7) +
+        (whitespaceRatio * 0.25) -
+        (controlRatio * 6.0) -
+        (latinSupplementRatio * 2.5) -
+        (suspiciousRatio * 4.5);
+  }
+
+  static bool _isSuspiciousMojibakeRune(int rune) {
+    return rune == 0x00C2 ||
+        rune == 0x00C3 ||
+        rune == 0x00A0 ||
+        rune == 0x00A4 ||
+        rune == 0x201A ||
+        rune == 0x201C ||
+        rune == 0x201D ||
+        rune == 0x20AC;
   }
 }
 
