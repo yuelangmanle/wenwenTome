@@ -365,14 +365,19 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     }
     final manager = WebNovelDownloadManager(
       database: () async => database,
-      downloadChapter: (
-        String webBookId,
-        int chapterIndex, {
-        required bool forceRefresh,
-      }) async {
-        await getChapterContent(webBookId, chapterIndex, refresh: forceRefresh);
-        await _enforceCachePolicies();
-      },
+      downloadChapter:
+          (
+            String webBookId,
+            int chapterIndex, {
+            required bool forceRefresh,
+          }) async {
+            await getChapterContent(
+              webBookId,
+              chapterIndex,
+              refresh: forceRefresh,
+            );
+            await _enforceCachePolicies();
+          },
     );
     _downloadManager = manager;
     await manager.start();
@@ -1233,7 +1238,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         );
         final status = existing == null
             ? SourceImportEntryStatus.imported
-            : jsonEncode(existing.toJson()) == jsonEncode(parsed.source.toJson())
+            : jsonEncode(existing.toJson()) ==
+                  jsonEncode(parsed.source.toJson())
             ? SourceImportEntryStatus.skipped
             : (resolvedSource.id == originalId && !existing.builtin)
             ? SourceImportEntryStatus.updated
@@ -1455,20 +1461,24 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     String normalizeHost(String host) =>
         host.trim().toLowerCase().replaceFirst('www.', '');
 
-    final existingBaseHost =
-        normalizeHost(Uri.tryParse(existing.baseUrl)?.host ?? '');
-    final incomingBaseHost =
-        normalizeHost(Uri.tryParse(incoming.baseUrl)?.host ?? '');
+    final existingBaseHost = normalizeHost(
+      Uri.tryParse(existing.baseUrl)?.host ?? '',
+    );
+    final incomingBaseHost = normalizeHost(
+      Uri.tryParse(incoming.baseUrl)?.host ?? '',
+    );
     if (existingBaseHost.isNotEmpty &&
         incomingBaseHost.isNotEmpty &&
         existingBaseHost == incomingBaseHost) {
       return true;
     }
 
-    final existingDomains =
-        existing.siteDomains.map(normalizeHost).where((item) => item.isNotEmpty);
-    final incomingDomains =
-        incoming.siteDomains.map(normalizeHost).where((item) => item.isNotEmpty);
+    final existingDomains = existing.siteDomains
+        .map(normalizeHost)
+        .where((item) => item.isNotEmpty);
+    final incomingDomains = incoming.siteDomains
+        .map(normalizeHost)
+        .where((item) => item.isNotEmpty);
     final existingSet = existingDomains.toSet();
     final incomingSet = incomingDomains.toSet();
     if (existingSet.isNotEmpty &&
@@ -2682,7 +2692,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     }
 
     final db = await database;
-    final deadline = DateTime.now().add(AppTimeouts.webnovelCacheForegroundWait);
+    final deadline = DateTime.now().add(
+      AppTimeouts.webnovelCacheForegroundWait,
+    );
     while (DateTime.now().isBefore(deadline)) {
       await manager.pumpOnce();
       final rows = await db.query(
@@ -2708,21 +2720,28 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       whereArgs: [enqueue.bookTaskId],
       limit: 1,
     );
-    return finalRows.isEmpty ? 0 : (finalRows.first['completed_count'] as int? ?? 0);
+    return finalRows.isEmpty
+        ? 0
+        : (finalRows.first['completed_count'] as int? ?? 0);
   }
 
   @override
   Stream<int> watchDownloadTasks() {
     final manager = _downloadManager ??= WebNovelDownloadManager(
       database: () async => database,
-      downloadChapter: (
-        String webBookId,
-        int chapterIndex, {
-        required bool forceRefresh,
-      }) async {
-        await getChapterContent(webBookId, chapterIndex, refresh: forceRefresh);
-        await _enforceCachePolicies();
-      },
+      downloadChapter:
+          (
+            String webBookId,
+            int chapterIndex, {
+            required bool forceRefresh,
+          }) async {
+            await getChapterContent(
+              webBookId,
+              chapterIndex,
+              refresh: forceRefresh,
+            );
+            await _enforceCachePolicies();
+          },
     );
     unawaited(manager.start());
     return manager.events;
@@ -2810,13 +2829,11 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         0;
     final cachedBooks =
         Sqflite.firstIntValue(
-          await db.rawQuery(
-            '''
+          await db.rawQuery('''
             SELECT COUNT(DISTINCT ch.web_book_id)
             FROM web_chapter_cache c
             JOIN web_chapters ch ON ch.id = c.chapter_id
-            ''',
-          ),
+            '''),
         ) ??
         0;
     return <String, int>{
@@ -2854,7 +2871,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
   Future<void> _enforceCachePolicies() async {
     final lastRun = _lastCachePolicyEnforcedAt;
     final now = _now();
-    if (lastRun != null && now.difference(lastRun) < const Duration(seconds: 3)) {
+    if (lastRun != null &&
+        now.difference(lastRun) < const Duration(seconds: 3)) {
       return;
     }
     _lastCachePolicyEnforcedAt = now;
@@ -2870,8 +2888,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     final nowMs = now.millisecondsSinceEpoch;
 
     if (maxDays > 0) {
-      final cutoffMs =
-          now.subtract(Duration(days: maxDays)).millisecondsSinceEpoch;
+      final cutoffMs = now
+          .subtract(Duration(days: maxDays))
+          .millisecondsSinceEpoch;
       await db.delete(
         'web_chapter_cache',
         where: 'last_accessed_at > 0 AND last_accessed_at < ?',
@@ -2879,8 +2898,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       );
     }
 
-    final bookRows = await db.rawQuery(
-      '''
+    final bookRows = await db.rawQuery('''
       SELECT
         ch.web_book_id AS book_id,
         MAX(CASE WHEN c.last_accessed_at > 0 THEN c.last_accessed_at ELSE c.fetched_at END) AS last_at,
@@ -2889,8 +2907,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       JOIN web_chapters ch ON ch.id = c.chapter_id
       GROUP BY ch.web_book_id
       ORDER BY last_at DESC
-      ''',
-    );
+      ''');
     if (bookRows.isEmpty) {
       return;
     }
@@ -3077,10 +3094,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     if (allowWebFallback &&
         !scopedSourceSearch &&
         dedup.length < minimumDesiredResults) {
-      final fallbackEligible =
-          enabled
-              .where((source) => source.search.useSearchProviderFallback)
-              .toList(growable: false);
+      final fallbackEligible = enabled
+          .where((source) => source.search.useSearchProviderFallback)
+          .toList(growable: false);
       final fallback = await _searchSourcesByProviderFallbackBulk(
         fallbackEligible,
         query,
@@ -3097,8 +3113,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       if (allowWebFallback && scopedSourceSearch && enabled.isNotEmpty) {
         final timeout =
             detectLocalRuntimePlatform() == LocalRuntimePlatform.android
-                ? _mobileSearchTimeout
-                : _desktopSearchTimeout;
+            ? _mobileSearchTimeout
+            : _desktopSearchTimeout;
         try {
           final fallback = await _searchSourceByProviderFallback(
             enabled.first,
@@ -3192,7 +3208,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         final sources = await listSources();
         var enabled = sources
             .where(
-              (item) => item.enabled && (sourceId == null || item.id == sourceId),
+              (item) =>
+                  item.enabled && (sourceId == null || item.id == sourceId),
             )
             .toList();
         if (sourceId == null && requiredTags.isNotEmpty) {
@@ -3304,11 +3321,14 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
           }
         } else {
           final queue = Queue<WebNovelSource>.from(directCandidates);
-          final workerCount = math.max(1, math.min(maxConcurrent, queue.length));
+          final workerCount = math.max(
+            1,
+            math.min(maxConcurrent, queue.length),
+          );
           final timeout =
               detectLocalRuntimePlatform() == LocalRuntimePlatform.android
-                  ? _mobileSearchTimeout
-                  : _desktopSearchTimeout;
+              ? _mobileSearchTimeout
+              : _desktopSearchTimeout;
 
           Future<void> worker() async {
             while (queue.isNotEmpty) {
@@ -3350,10 +3370,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         if (allowWebFallback &&
             !scopedSourceSearch &&
             dedup.length < minimumDesiredResults) {
-          final fallbackEligible =
-              enabled
-                  .where((source) => source.search.useSearchProviderFallback)
-                  .toList(growable: false);
+          final fallbackEligible = enabled
+              .where((source) => source.search.useSearchProviderFallback)
+              .toList(growable: false);
           final fallback = await _searchSourcesByProviderFallbackBulk(
             fallbackEligible,
             query,
@@ -3371,8 +3390,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
           if (allowWebFallback && scopedSourceSearch && enabled.isNotEmpty) {
             final timeout =
                 detectLocalRuntimePlatform() == LocalRuntimePlatform.android
-                    ? _mobileSearchTimeout
-                    : _desktopSearchTimeout;
+                ? _mobileSearchTimeout
+                : _desktopSearchTimeout;
             try {
               final fallback = await _searchSourceByProviderFallback(
                 enabled.first,
@@ -3401,7 +3420,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         if (!scopedSourceSearch &&
             dedup.length < (minimumDesiredResults ~/ 2) &&
             directCandidates.length < enabled.length) {
-          final selectedIds = {for (final source in directCandidates) source.id};
+          final selectedIds = {
+            for (final source in directCandidates) source.id,
+          };
           final remaining = enabled
               .where((source) => !selectedIds.contains(source.id))
               .toList(growable: false);
@@ -3477,7 +3498,10 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     final grouped = <String, List<WebNovelSearchResult>>{};
     for (final item in results) {
       grouped
-          .putIfAbsent(_groupKeyForSearchResult(item), () => <WebNovelSearchResult>[])
+          .putIfAbsent(
+            _groupKeyForSearchResult(item),
+            () => <WebNovelSearchResult>[],
+          )
           .add(item);
     }
 
@@ -3549,7 +3573,10 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     final grouped = <String, List<WebNovelSearchResult>>{};
     for (final item in results) {
       grouped
-          .putIfAbsent(_groupKeyForSearchResult(item), () => <WebNovelSearchResult>[])
+          .putIfAbsent(
+            _groupKeyForSearchResult(item),
+            () => <WebNovelSearchResult>[],
+          )
           .add(item);
     }
 
@@ -3733,7 +3760,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     }
     final host = uri.host.toLowerCase().replaceFirst('www.', '');
     final baseHost =
-        Uri.tryParse(source.baseUrl)?.host.toLowerCase().replaceFirst('www.', '') ??
+        Uri.tryParse(
+          source.baseUrl,
+        )?.host.toLowerCase().replaceFirst('www.', '') ??
         '';
     if (baseHost.isNotEmpty && host == baseHost) {
       return true;
@@ -4233,8 +4262,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         throw Exception('AI 未提供可用修复补丁');
       }
       final note = decoded['note']?.toString() ?? '';
-      final confidence =
-          (decoded['confidence'] as num?)?.toDouble() ?? 0.5;
+      final confidence = (decoded['confidence'] as num?)?.toDouble() ?? 0.5;
 
       final merged = _deepMergeJson(source.toJson(), patch);
       merged['id'] = source.id;
@@ -4419,8 +4447,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       detailUrl: detail.detailUrl.isEmpty ? result.detailUrl : detail.detailUrl,
       author: detail.author.isEmpty ? result.author : detail.author,
       coverUrl: detail.coverUrl.isEmpty ? result.coverUrl : detail.coverUrl,
-      description:
-          detail.description.isEmpty ? result.description : detail.description,
+      description: detail.description.isEmpty
+          ? result.description
+          : detail.description,
       origin: result.origin,
     );
   }
@@ -4530,10 +4559,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     List<WebChapterRecord> chapters,
   ) {
     final normalizedCurrent = _normalizeReaderModeUrl(article.url);
-    final chapterTitle =
-        _detectReaderModeChapterTitle(article.pageTitle).ifEmpty(
-          article.pageTitle,
-        );
+    final chapterTitle = _detectReaderModeChapterTitle(
+      article.pageTitle,
+    ).ifEmpty(article.pageTitle);
     final filtered = chapters
         .where((chapter) => chapter.url.trim().isNotEmpty)
         .toList(growable: true);
@@ -4664,8 +4692,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       article.pageTitle,
       fallback: article.siteName,
     ).ifEmpty(article.pageTitle);
-    final author =
-        article.author.ifEmpty(article.siteName).ifEmpty('网页阅读');
+    final author = article.author.ifEmpty(article.siteName).ifEmpty('网页阅读');
     final webBookId = _uuid.v4();
     final libraryBook = await _libraryService.addManagedWebNovel(
       bookTitle,
@@ -4673,10 +4700,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       author: author,
     );
     final source = _buildReaderModeSource(Uri.tryParse(article.url));
-    final detailUrl =
-        article.detectedTocLinks.isNotEmpty
-            ? article.detectedTocLinks.first
-            : article.url;
+    final detailUrl = article.detectedTocLinks.isNotEmpty
+        ? article.detectedTocLinks.first
+        : article.url;
     final metaSeed = WebNovelBookMeta(
       id: webBookId,
       libraryBookId: libraryBook.id,
@@ -4728,8 +4754,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     if (chapters.isNotEmpty) {
       final normalizedCurrent = _normalizeReaderModeUrl(article.url);
       final current = chapters.firstWhere(
-        (chapter) =>
-            _normalizeReaderModeUrl(chapter.url) == normalizedCurrent,
+        (chapter) => _normalizeReaderModeUrl(chapter.url) == normalizedCurrent,
         orElse: () => chapters.first,
       );
       await _cacheReaderModeArticle(current, article);
@@ -5696,11 +5721,13 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
 
     final results = <WebNovelSearchResult>[];
     for (final node in _selectSourceItems(page, source.search.itemSelector)) {
-      final title = _extractRuleValue(
-        node,
-        source.search.titleRule,
-        baseUri: page.requestUrl,
-      ).ifEmpty(_fallbackReadableText(node));
+      final title = _sanitizeSearchResultText(
+        _extractRuleValue(
+          node,
+          source.search.titleRule,
+          baseUri: page.requestUrl,
+        ).ifEmpty(_fallbackReadableText(node)),
+      );
       final detailUrl = _extractRuleValue(
         node,
         source.search.urlRule,
@@ -5714,20 +5741,24 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
           sourceId: source.id,
           title: title,
           detailUrl: detailUrl,
-          author: _extractRuleValue(
-            node,
-            source.search.authorRule,
-            baseUri: page.requestUrl,
+          author: _sanitizeSearchResultText(
+            _extractRuleValue(
+              node,
+              source.search.authorRule,
+              baseUri: page.requestUrl,
+            ),
           ),
           coverUrl: _extractRuleValue(
             node,
             source.search.coverRule,
             baseUri: page.requestUrl,
           ),
-          description: _extractRuleValue(
-            node,
-            source.search.descriptionRule,
-            baseUri: page.requestUrl,
+          description: _sanitizeSearchResultText(
+            _extractRuleValue(
+              node,
+              source.search.descriptionRule,
+              baseUri: page.requestUrl,
+            ),
           ),
           origin: WebNovelSearchResultOrigin.direct,
         ),
@@ -5776,12 +5807,16 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
               _looksLikeSearchOrIndexUrl(hit.url)) {
             continue;
           }
+          final title = _sanitizeSearchResultText(hit.title);
+          if (title.isEmpty) {
+            continue;
+          }
           results.add(
             WebNovelSearchResult(
               sourceId: source.id,
-              title: hit.title,
+              title: title,
               detailUrl: hit.url,
-              description: hit.snippet,
+              description: _sanitizeSearchResultText(hit.snippet),
               origin: WebNovelSearchResultOrigin.providerFallback,
             ),
           );
@@ -5844,11 +5879,15 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
                 _looksLikeSearchOrIndexUrl(hit.url)) {
               continue;
             }
+            final title = _sanitizeSearchResultText(hit.title);
+            if (title.isEmpty) {
+              continue;
+            }
             dedup['${source.id}:${hit.url}'] = WebNovelSearchResult(
               sourceId: source.id,
-              title: hit.title,
+              title: title,
               detailUrl: hit.url,
-              description: hit.snippet,
+              description: _sanitizeSearchResultText(hit.snippet),
               origin: WebNovelSearchResultOrigin.providerFallback,
             );
           }
@@ -5871,6 +5910,44 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       }
     }
     return dedup.values.toList(growable: false);
+  }
+
+  String _sanitizeSearchResultText(String value) {
+    final cleaned = _cleanText(value);
+    if (cleaned.isEmpty || _looksLikeSearchErrorPayload(cleaned)) {
+      return '';
+    }
+    return cleaned;
+  }
+
+  bool _looksLikeSearchErrorPayload(String value) {
+    final cleaned = _cleanText(value);
+    if (cleaned.isEmpty) {
+      return false;
+    }
+
+    final normalized = cleaned.toLowerCase();
+    final compact = normalized.replaceAll(RegExp(r'\s+'), '');
+    if ((compact.startsWith('{') || compact.startsWith('[')) &&
+        (compact.contains('"status":-') ||
+            compact.contains('"error"') ||
+            compact.contains('"message"') ||
+            compact.contains('"info"'))) {
+      return true;
+    }
+
+    if (normalized.contains('action is not found') ||
+        normalized.contains('connection reset by peer') ||
+        normalized.contains('service unavailable') ||
+        normalized.contains('gateway timeout') ||
+        normalized.contains('502 bad gateway') ||
+        normalized.contains('403 forbidden') ||
+        normalized.contains('access denied')) {
+      return true;
+    }
+
+    return compact.startsWith('{') &&
+        (compact.contains('status') || compact.contains('message'));
   }
 
   WebNovelSource? _matchSourceForHit(
@@ -6115,14 +6192,11 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
 
     final detectedTocLinks = _detectReaderModeTocLinks(document, requestUrl);
     final pageTitle =
-        _extractMetaContent(
-          document,
-          const [
-            'meta[property="og:title"]',
-            'meta[name="title"]',
-            'meta[property="twitter:title"]',
-          ],
-        ).ifEmpty(
+        _extractMetaContent(document, const [
+          'meta[property="og:title"]',
+          'meta[name="title"]',
+          'meta[property="twitter:title"]',
+        ]).ifEmpty(
           _cleanText(
             document.querySelector('h1')?.text ??
                 document.querySelector('h2')?.text ??
@@ -6130,24 +6204,21 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
                 requestUrl.toString(),
           ),
         );
-    final siteName = _extractMetaContent(
-      document,
-      const [
-        'meta[property="og:site_name"]',
-        'meta[name="application-name"]',
-      ],
-    ).ifEmpty(requestUrl.host);
+    final siteName = _extractMetaContent(document, const [
+      'meta[property="og:site_name"]',
+      'meta[name="application-name"]',
+    ]).ifEmpty(requestUrl.host);
     final author = _extractReaderModeAuthor(document, cloned);
     final publishTime = _extractReaderModePublishTime(document, cloned);
-    final leadImage = _extractMetaContent(
-      document,
-      const [
-        'meta[property="og:image"]',
-        'meta[name="twitter:image"]',
-      ],
-    ).ifEmpty(
-      _extractMetaContent(document, const ['link[rel="image_src"]'], attr: 'href'),
-    );
+    final leadImage =
+        _extractMetaContent(document, const [
+          'meta[property="og:image"]',
+          'meta[name="twitter:image"]',
+        ]).ifEmpty(
+          _extractMetaContent(document, const [
+            'link[rel="image_src"]',
+          ], attr: 'href'),
+        );
     final nextPageUrl = _detectReaderModeNextPageUrl(
       document,
       requestUrl,
@@ -6218,7 +6289,8 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
         ? null
         : source == null
         ? await getSessionForDomain(host)
-        : (await getSessionForSource(source.id) ?? await getSessionForDomain(host));
+        : (await getSessionForSource(source.id) ??
+              await getSessionForDomain(host));
     if (session != null && session.cookies.isNotEmpty) {
       headers['Cookie'] = session.cookies
           .map((cookie) => '${cookie['name']}=${cookie['value']}')
@@ -7432,15 +7504,12 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
   }
 
   String _extractReaderModeAuthor(dom.Document document, dom.Element root) {
-    final metaAuthor = _extractMetaContent(
-      document,
-      const [
-        'meta[name="author"]',
-        'meta[property="article:author"]',
-        'meta[property="og:author"]',
-        'meta[name="byline"]',
-      ],
-    );
+    final metaAuthor = _extractMetaContent(document, const [
+      'meta[name="author"]',
+      'meta[property="article:author"]',
+      'meta[property="og:author"]',
+      'meta[name="byline"]',
+    ]);
     if (metaAuthor.isNotEmpty) {
       return _cleanText(metaAuthor);
     }
@@ -7455,13 +7524,14 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       '.writer',
       '.byline',
     ]) {
-      final node = document.querySelector(selector) ?? root.querySelector(selector);
+      final node =
+          document.querySelector(selector) ?? root.querySelector(selector);
       if (node == null) {
         continue;
       }
-      final text = _cleanText(node.text)
-          .replaceAll(RegExp(r'^作者[:：]\s*'), '')
-          .trim();
+      final text = _cleanText(
+        node.text,
+      ).replaceAll(RegExp(r'^作者[:：]\s*'), '').trim();
       if (text.isNotEmpty && text.length <= 40) {
         return text;
       }
@@ -7469,16 +7539,16 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     return '';
   }
 
-  String _extractReaderModePublishTime(dom.Document document, dom.Element root) {
-    final metaTime = _extractMetaContent(
-      document,
-      const [
-        'meta[property="article:published_time"]',
-        'meta[name="pubdate"]',
-        'meta[name="publishdate"]',
-        'meta[name="timestamp"]',
-      ],
-    );
+  String _extractReaderModePublishTime(
+    dom.Document document,
+    dom.Element root,
+  ) {
+    final metaTime = _extractMetaContent(document, const [
+      'meta[property="article:published_time"]',
+      'meta[name="pubdate"]',
+      'meta[name="publishdate"]',
+      'meta[name="timestamp"]',
+    ]);
     if (metaTime.isNotEmpty) {
       return _cleanText(metaTime);
     }
@@ -7625,10 +7695,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
 
     final cleaned = parts
         .where(
-          (item) => !RegExp(
-            r'第.{0,18}[章节回卷集]',
-            unicode: true,
-          ).hasMatch(item),
+          (item) => !RegExp(r'第.{0,18}[章节回卷集]', unicode: true).hasMatch(item),
         )
         .toList();
     if (cleaned.isNotEmpty) {

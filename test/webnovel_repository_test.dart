@@ -163,6 +163,39 @@ void main() {
     expect(results.single.detailUrl, 'https://books.example.com/book/9001');
   });
 
+  test('filters raw API error payloads out of search results', () async {
+    final client = _MockHttpClient({
+      'https://api.example.com/search?q=bad': (_) => const _MockHttpResponse(
+        headers: <String, String>{'content-type': 'text/html; charset=utf-8'},
+        body:
+            '{"status":-5,"info":{"message":"action is not found"},"spend":{"total":0.0007}}',
+      ),
+    });
+    final repository = await createRepository(client);
+
+    await repository.saveSource(
+      const WebNovelSource(
+        id: 'bad_api',
+        name: 'Bad API',
+        baseUrl: 'https://api.example.com',
+        search: BookSourceSearchRule(
+          method: HttpMethod.get,
+          pathTemplate: '/search?q={{key}}',
+          itemSelector: 'body',
+          titleRule: SelectorRule(expression: 'body', attr: 'text'),
+          urlRule: SelectorRule(
+            expression: 'https://api.example.com/book/invalid',
+            type: RuleSelectorType.legado,
+          ),
+        ),
+        builtin: false,
+      ),
+    );
+
+    final results = await repository.searchBooks('bad', sourceId: 'bad_api');
+    expect(results, isEmpty);
+  });
+
   test(
     'uses bulk provider fallback instead of per-source provider fan-out',
     () async {
