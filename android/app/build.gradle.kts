@@ -34,7 +34,10 @@ android {
     }
 
     val keystoreProperties = Properties()
-    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystorePropertiesFile = listOf(
+        rootProject.file(".keys/key.properties"),
+        rootProject.file("key.properties")
+    ).firstOrNull { it.exists() } ?: rootProject.file(".keys/key.properties")
     val hasKeystore = keystorePropertiesFile.exists()
     if (hasKeystore) {
         keystoreProperties.load(FileInputStream(keystorePropertiesFile))
