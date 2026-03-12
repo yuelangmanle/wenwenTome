@@ -320,7 +320,7 @@ class LocalTtsModelManager {
       name: 'Kokoro 中英多音色',
       size: '约 180 MB',
       description: '103 个中英双语音色，适合追求更高质感和多角色切换。',
-      isBuiltIn: true,
+      isBuiltIn: false,
       paramDefs: _kokoroParams,
       sherpaManifest: SherpaTtsModelManifest(
         kind: SherpaTtsModelKind.kokoro,
@@ -346,7 +346,7 @@ class LocalTtsModelManager {
       name: 'Aishell3 中文多音色',
       size: '约 35 MB',
       description: '174 个中文说话人，适合多角色和群像朗读。',
-      isBuiltIn: true,
+      isBuiltIn: false,
       paramDefs: _aishell3Params,
       sherpaManifest: SherpaTtsModelManifest(
         kind: SherpaTtsModelKind.vits,

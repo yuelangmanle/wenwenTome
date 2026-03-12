@@ -2,6 +2,8 @@
 
 This repository can build Android APKs and Windows installers in GitHub Actions.
 
+To keep the repository pushable to GitHub, generated installers under `releases/` and oversized optional TTS model assets are not tracked in Git. Cloud builds produce installers as workflow artifacts instead.
+
 ## Workflows
 
 - `.github/workflows/android-release.yml`
@@ -82,3 +84,4 @@ After a workflow finishes, open the run in GitHub Actions and download:
 - The Windows installer is currently unsigned. It is installable, but Windows SmartScreen may still warn users.
 - If code signing is needed later, add a certificate-based signing step before uploading the installer artifact.
 - Losing the Android keystore or its passwords means future APK updates cannot reliably replace earlier signed releases.
+- Optional large TTS voice packs are expected to be downloaded at runtime or restored locally outside Git.

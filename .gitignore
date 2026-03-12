@@ -43,7 +43,9 @@ migrate_working_dir/
 tmp/
 tools/
 downloads/
-releases/**/*.apk
+releases/
+assets/local_tts/kokoro-int8-multi-lang-v1_1/
+assets/local_tts/vits-icefall-zh-aishell3/
 *.apk
 *.mp4
 *.mov
