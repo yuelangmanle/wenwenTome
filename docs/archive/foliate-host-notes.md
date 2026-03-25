@@ -25,7 +25,7 @@ This repository now vendors a minimal `foliate-js` runtime slice under `assets/r
 
 - `view.js` and `epub.js` are the core EPUB runtime.
 - `paginator.js` and `fixed-layout.js` cover paginated and fixed-layout rendering paths.
-- `ui/menu.js` and `ui/tree.js` support the built-in reader shell.
+- `ui/menu.js` and `ui/tree.js` support the transitional in-WebView shell.
 - `vendor/zip.js` satisfies EPUB archive loading.
 - `reader.html` and `reader.js` preserve the upstream standalone shell for manual testing.
 - `wenwen-foliate-host.js` provides the app-specific host surface for later Flutter bridging and TXT handling.
