@@ -1184,6 +1184,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _txtLazyRequestId++;
     final initialReadingMode = ref.read(readerSettingsProvider).readingMode;
 
+    // Migration boundary: keep the Flutter reader shell and orchestration
+    // here while Android local reading moves to foliate-js behind it.
     final openContext = <String, Object?>{
       'book_id': widget.book.id,
       'title': widget.book.title,

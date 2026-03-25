@@ -112,6 +112,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   bool _shouldBuildBrowserTab = false;
   bool _showSearchBackToTop = false;
 
+  // Migration boundary: keep the Flutter webnovel shell here while Android
+  // webnovel internals move to Legado behind this repository handle.
   WebNovelRepositoryHandle get _repository => widget.repository;
 
   bool get _isDesktop =>
