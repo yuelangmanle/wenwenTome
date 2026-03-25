@@ -73,6 +73,7 @@ flutter:
   assets:
     - CHANGELOG.md
     - assets/local_tts/
+    - assets/reader/foliate/
     - assets/webnovel/bundled_sources.json
   fonts:
     - family: MiSans

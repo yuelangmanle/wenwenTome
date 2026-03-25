@@ -12,6 +12,7 @@ This repository is distributed under `GPL-3.0-only`.
 - local working reference: `third_party/foliate-js/`
 - upstream license: MIT
 - intended role: Android local-book reading core for EPUB and TXT migration
+- vendored runtime slice: `assets/reader/foliate/`
 
 ### Legado
 
