@@ -23,6 +23,8 @@ import '../../webnovel/models.dart';
 import '../../webnovel/webnovel_repository.dart';
 import '../android_tts_engine_service.dart';
 import '../book_text_loader.dart';
+import '../engine/foliate_host_runtime.dart';
+import '../engine/foliate_reader_bridge.dart';
 import '../engine/reader_engine_plan.dart';
 import '../local_tts_model_manager.dart';
 import '../reader_style.dart';
@@ -119,6 +121,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   final GlobalKey<ReaderPagedTextViewState> _pagedTextViewKey =
       GlobalKey<ReaderPagedTextViewState>();
   final AnnotationService _annotationService = AnnotationService();
+  final FoliateReaderBridgeController _foliateBridgeController =
+      FoliateReaderBridgeController();
   final LocalTtsModelManager _localTtsModelManager = LocalTtsModelManager();
   final AndroidTtsEngineService _androidTtsEngineService =
       AndroidTtsEngineService();
@@ -145,6 +149,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _webChapterLoading = false;
   int? _webChapterLoadingIndex;
   int _webChapterRequestId = 0;
+  FoliateHostRuntimeSession? _foliateRuntimeSession;
+  int _foliateOpenRequestId = 0;
+  bool _foliateInitialPositionRestored = false;
   DateTime? _readingSessionStartedAt;
   late Book _latestBookSnapshot;
   Offset? _tapDownPosition;
@@ -186,6 +193,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _readerSettingsSubscription?.close();
     _volumeKeyEventSubscription?.cancel();
     _batteryRefreshTimer?.cancel();
+    _foliateBridgeController.dispose();
     if (_volumePagingHookEnabled) {
       unawaited(_readerVolumeKeyService.setPagingEnabled(false));
     }
@@ -536,6 +544,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   int get _effectiveTextLength =>
       _fullTextLength > 0 ? _fullTextLength : _txtContent.length;
+
+  bool _shouldUseFoliateBridgeFor(BookFormat format) {
+    final plan = ReaderEnginePlan.forBook(
+      format: format,
+      platform: detectLocalRuntimePlatform(),
+    );
+    return plan.primary == ReaderEngineKind.foliateJs;
+  }
+
+  bool get _usesActiveFoliateBridge =>
+      _shouldUseFoliateBridgeFor(_openedFormat ?? widget.book.format) &&
+      _foliateRuntimeSession != null;
 
   bool _usesPagedTextView(ReaderSettings settings) {
     return !_forceScrollTextView && settings.readingMode != 'scroll';
@@ -1148,6 +1168,105 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
+  Future<bool> _tryPrepareFoliateReader(Book resolved) async {
+    if (!_shouldUseFoliateBridgeFor(resolved.format)) {
+      return false;
+    }
+    try {
+      final session = await FoliateHostRuntime.ensureReady();
+      if (!FoliateHostRuntime.containsRequiredEntry(session.assetKeys)) {
+        throw StateError('foliate host entry asset is missing');
+      }
+      _foliateRuntimeSession = session;
+      if (resolved.format == BookFormat.txt) {
+        final decoded = await BookTextLoader.readTextFile(resolved.filePath);
+        _txtContent = decoded.text;
+        _fullTextLength = _txtContent.length;
+        _fullTextLoaded = true;
+        _txtToc = const <ReaderTocEntry>[];
+        _textSections = const <_ReaderTextSection>[];
+        _metaText = 'TXT encoding: ${decoded.encoding}\nfoliate-js ready';
+      } else {
+        _metaText = 'EPUB foliate-js ready';
+      }
+      unawaited(_openFoliateContent(resolved));
+      return true;
+    } catch (error) {
+      _foliateRuntimeSession = null;
+      await AppRunLogService.instance.logError(
+        'Foliate runtime preparation failed: ${resolved.filePath}; $error',
+      );
+      return false;
+    }
+  }
+
+  Future<void> _openFoliateContent(Book resolved) async {
+    final requestId = ++_foliateOpenRequestId;
+    try {
+      if (resolved.format == BookFormat.epub) {
+        await _foliateBridgeController.openEpubFile(resolved.filePath);
+      } else if (resolved.format == BookFormat.txt) {
+        await _foliateBridgeController.openText(
+          title: resolved.title,
+          author: resolved.author,
+          text: _txtContent,
+        );
+      }
+    } catch (error) {
+      if (requestId != _foliateOpenRequestId) {
+        return;
+      }
+      await AppRunLogService.instance.logError(
+        'Foliate open failed: ${resolved.filePath}; $error',
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = 'foliate-js open failed: $error';
+      });
+    }
+  }
+
+  void _handleFoliateBridgeEvent(FoliateBridgeEvent event) {
+    if (event.type == 'opened' && !_foliateInitialPositionRestored) {
+      _foliateInitialPositionRestored = true;
+      if (_textProgress > 0) {
+        unawaited(_foliateBridgeController.seekToFraction(_textProgress));
+      }
+      return;
+    }
+    if (event.type == 'relocate') {
+      final fraction = (event.detail['fraction'] as num?)?.toDouble();
+      if (fraction == null) {
+        return;
+      }
+      final normalized = fraction.clamp(0.0, 1.0);
+      _textProgress = normalized;
+      _updateEtaBaseline(normalized);
+      final position = (_effectiveTextLength > 0
+              ? _effectiveTextLength * normalized
+              : normalized * 1000000)
+          .round();
+      _textProgressDebounce?.cancel();
+      _textProgressDebounce = Timer(const Duration(milliseconds: 160), () {
+        unawaited(_updateReadingProgress(position, normalized));
+      });
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+    if (event.type == 'error' && mounted) {
+      setState(() {
+        _error = sanitizeUiText(
+          event.detail['message']?.toString() ?? 'foliate-js error',
+          fallback: 'foliate-js error',
+        );
+      });
+    }
+  }
+
   Future<void> _loadBook() async {
     setState(() {
       _loading = true;
@@ -1178,6 +1297,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _textChunksLoading = false;
       _textChunkBuildTask = null;
       _textTocBuildTask = null;
+      _foliateRuntimeSession = null;
+      _foliateOpenRequestId = 0;
+      _foliateInitialPositionRestored = false;
     });
     _textChunkRequestId++;
     _textTocRequestId++;
@@ -1210,6 +1332,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
           switch (resolved.format) {
             case BookFormat.epub:
+              if (await _tryPrepareFoliateReader(resolved)) {
+                break;
+              }
               final probe = await ReaderDocumentProbe.probe(resolved);
               if (probe.kind != ReaderDocumentKind.epub) {
                 throw Exception('EPUB 解析失败：未读取到正文');
@@ -1252,6 +1377,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               _metaText = 'PDF ${probe.pdfPageCount} 页';
               break;
             case BookFormat.txt:
+              if (await _tryPrepareFoliateReader(resolved)) {
+                break;
+              }
               final fileSize = await _safeFileSize(resolved.filePath);
               final shouldLazy = fileSize > _largeTxtLazyBytes;
               _autoScrollForLargeTxt = false;
@@ -1957,6 +2085,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     switch (_openedFormat ?? widget.book.format) {
       case BookFormat.txt:
       case BookFormat.epub:
+        if (_usesActiveFoliateBridge) {
+          await _foliateBridgeController.seekToFraction(normalized);
+          return;
+        }
         await _jumpToTextProgress(normalized);
         return;
       case BookFormat.pdf:
@@ -3218,6 +3350,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     switch (openedFormat) {
       case BookFormat.txt:
       case BookFormat.epub:
+        if (_usesActiveFoliateBridge) {
+          if (delta < 0) {
+            await _foliateBridgeController.goLeft();
+          } else {
+            await _foliateBridgeController.goRight();
+          }
+          return true;
+        }
         if (_usesPagedTextView(ref.read(readerSettingsProvider))) {
           final movedWithinSection =
               await _pagedTextViewKey.currentState?.goToAdjacentPage(delta) ??
@@ -3611,6 +3751,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final openedFormat = _openedFormat ?? widget.book.format;
 
     if (openedFormat == BookFormat.epub || openedFormat == BookFormat.txt) {
+      if (_usesActiveFoliateBridge) {
+        final session = _foliateRuntimeSession;
+        if (session == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return FoliateReaderBridge(
+          session: session,
+          controller: _foliateBridgeController,
+          onEvent: _handleFoliateBridgeEvent,
+        );
+      }
       if (_usesPagedTextView(settings)) {
         final section = _activeTextSection();
         return ReaderPagedTextView(

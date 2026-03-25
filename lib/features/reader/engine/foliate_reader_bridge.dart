@@ -105,6 +105,21 @@ class FoliateReaderBridgeController {
     );
   }
 
+  Future<void> goLeft() async {
+    await _invoke('window.WenwenReaderHost?.goLeft?.();');
+  }
+
+  Future<void> goRight() async {
+    await _invoke('window.WenwenReaderHost?.goRight?.();');
+  }
+
+  Future<void> seekToFraction(double fraction) async {
+    final normalized = fraction.clamp(0.0, 1.0);
+    await _invoke(
+      'window.WenwenReaderHost?.seekToFraction?.($normalized);',
+    );
+  }
+
   Future<void> _invoke(String source) async {
     await waitUntilReady();
     final controller = _webViewController;
