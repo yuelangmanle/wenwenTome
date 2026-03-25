@@ -72,7 +72,7 @@ flutter:
   uses-material-design: true
   assets:
     - CHANGELOG.md
-    - assets/local_tts/
+    - assets/local_tts/vits-piper-zh_CN-huayan-medium/
     - assets/reader/foliate/
     - assets/webnovel/bundled_sources.json
   fonts:

@@ -330,7 +330,6 @@ class LocalTtsModelManager {
         mirrorPackageUrls: <String>[
           'https://mirror.ghproxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2',
         ],
-        bundledAssetPrefix: 'assets/local_tts/kokoro-int8-multi-lang-v1_1',
         modelFileName: 'model.int8.onnx',
         tokensFileName: 'tokens.txt',
         voicesFileName: 'voices.bin',
@@ -356,7 +355,6 @@ class LocalTtsModelManager {
         mirrorPackageUrls: <String>[
           'https://mirror.ghproxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-icefall-zh-aishell3.tar.bz2',
         ],
-        bundledAssetPrefix: 'assets/local_tts/vits-icefall-zh-aishell3',
         modelFileName: 'model.onnx',
         tokensFileName: 'tokens.txt',
         lexiconFileNames: <String>['lexicon.txt'],
