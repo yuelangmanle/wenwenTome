@@ -19,6 +19,7 @@ import '../../logging/run_event_tracker.dart';
 import '../../settings/providers/global_settings_provider.dart';
 import '../../translation/translation_config.dart';
 import '../ai_search_service.dart';
+import '../engine/legado_repository_factory.dart';
 import '../models.dart';
 import '../webnovel_repository.dart';
 import 'webnovel_cache_screen.dart';
@@ -30,7 +31,7 @@ class WebNovelScreen extends ConsumerStatefulWidget {
     super.key,
     WebNovelRepositoryHandle? repository,
     this.initialBrowserUrl,
-  }) : repository = repository ?? WebNovelRepository();
+  }) : repository = repository ?? createDefaultWebNovelRepositoryHandle();
 
   final WebNovelRepositoryHandle repository;
   final String? initialBrowserUrl;

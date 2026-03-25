@@ -95,8 +95,11 @@ Completed in this phase:
 - GPL-3.0 license adopted
 - Upstream references cloned locally
 - legacy preservation policy documented
+- minimal `foliate-js` host vendored into app assets
+- Android `EPUB` / `TXT` bridge scaffolding added
+- `ReaderScreen` content area routed to the foliate bridge on Android for `EPUB` and `TXT`
+- Android webnovel default repository seam now routes through a `Legado` bridge entry before falling back to the legacy repository
 
 Pending:
-- actual `foliate-js` embedding
 - actual `Legado` integration
 - release automation

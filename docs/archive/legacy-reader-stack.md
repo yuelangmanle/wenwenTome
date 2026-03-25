@@ -73,3 +73,11 @@ Migration intent:
 - Do not delete the legacy stack during migration.
 - Do not add large new feature work to the legacy engines unless required as a short-term stopgap.
 - Keep changes isolated so the replacement path can take over format by format.
+
+## Current Primary Path
+
+As of the current migration checkpoint:
+- Android `EPUB` and `TXT` now target the `foliate-js` bridge path first.
+- If the `foliate` runtime cannot be staged successfully, the reader falls back to the legacy Flutter local-reader path.
+- Windows and non-Android platforms still stay on the legacy local-reader path.
+- PDF, comic, and webnovel formats still remain on their existing Flutter paths until later phases replace them.
