@@ -1,10 +1,10 @@
 ﻿{
-  "version": "2.7.0",
-  "buildNumber": 40,
+  "version": "2.7.1",
+  "buildNumber": 41,
   "releaseDate": "2026-03-25",
-  "codename": "Foliate 与 Legado 迁移起步",
+  "codename": "云端发布收尾",
   "platform": {
-    "windows": "2.7.0+40",
-    "android": "2.7.0+40"
+    "windows": "2.7.1+41",
+    "android": "2.7.1+41"
   }
 }

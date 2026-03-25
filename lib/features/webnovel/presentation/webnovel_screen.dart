@@ -2546,6 +2546,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
     );
   }
 
+  // ignore: unused_element
   Future<void> _showSourcesSheet() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -2828,8 +2829,17 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
           ]
         : const <Tab>[Tab(text: '搜书'), Tab(text: '网页搜索')];
 
-    return WillPopScope(
-      onWillPop: _handleBackPressed,
+    return PopScope<void>(
+      canPop: _isDesktop,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _isDesktop) {
+          return;
+        }
+        final shouldPop = await _handleBackPressed();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
       child: DefaultTabController(
         length: tabs.length,
         child: Scaffold(

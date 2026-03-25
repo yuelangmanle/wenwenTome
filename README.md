@@ -9,7 +9,7 @@ Current direction:
 - The existing Flutter UI shell, navigation, bookshelf, settings, and sync structure stay in place.
 
 Current version:
-- `2.7.0+40`
+- `2.7.1+41`
 
 ## License
 
@@ -44,7 +44,9 @@ Cloud builds are already working through GitHub Actions:
 - Android workflow: `.github/workflows/android-release.yml`
 - Windows workflow: `.github/workflows/windows-release.yml`
 
-Current workflows upload build artifacts. GitHub Releases automation is still a pending follow-up step.
+Current workflows do both:
+- upload workflow artifacts on branch or manual runs
+- publish APK and Windows installer to GitHub Releases on `v*` tags
 
 ## Local Notes
 

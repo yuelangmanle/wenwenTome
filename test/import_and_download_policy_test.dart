@@ -26,7 +26,7 @@ void main() {
   });
 
   group('TTS Model Download Policy', () {
-    test('exposes three built-in models and one downloadable model', () {
+    test('exposes one built-in model and three downloadable models', () {
       expect(LocalTtsModelManager.availableModels, hasLength(4));
 
       final builtIn = LocalTtsModelManager.availableModels
@@ -36,8 +36,8 @@ void main() {
           .where((model) => !model.isBuiltIn)
           .toList();
 
-      expect(builtIn, hasLength(3));
-      expect(downloadable, hasLength(1));
+      expect(builtIn, hasLength(1));
+      expect(downloadable, hasLength(3));
     });
 
     test('built-in models have no download candidates', () {

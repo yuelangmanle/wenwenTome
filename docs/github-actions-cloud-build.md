@@ -1,8 +1,8 @@
 # GitHub Actions Cloud Build
 
-This repository can build Android APKs and Windows installers in GitHub Actions.
+This repository can build Android APKs and Windows installers in GitHub Actions, and publish tagged builds to GitHub Releases.
 
-To keep the repository pushable to GitHub, generated installers under `releases/` and oversized optional TTS model assets are not tracked in Git. Cloud builds produce installers as workflow artifacts instead.
+To keep the repository pushable to GitHub, generated installers under `releases/` and oversized optional TTS model assets are not tracked in Git. Cloud builds produce installers as workflow artifacts, and tagged builds also publish release assets to GitHub Releases.
 
 ## Workflows
 
@@ -10,11 +10,13 @@ To keep the repository pushable to GitHub, generated installers under `releases/
   - Runs on `ubuntu-latest`
   - Builds `app-release.apk`
   - Uploads the APK as a workflow artifact
+  - Publishes the APK to GitHub Release on `v*` tags
 - `.github/workflows/windows-release.yml`
   - Runs on `windows-latest`
   - Builds the Flutter Windows release bundle
   - Packages an installable `.exe` with Inno Setup
   - Uploads both the installer and the portable `dist` folder as workflow artifacts
+  - Publishes the installer to GitHub Release on `v*` tags
 
 ## Required GitHub Secrets
 
@@ -71,6 +73,14 @@ If the repository moves to a different GitHub repo, the secrets must be created 
 - Push a tag like `v2.6.11`
 - Run either workflow manually from the GitHub Actions page
 
+Recommended release flow:
+
+1. Update `pubspec.yaml`, `version.json`, `setup.iss`, `CHANGELOG.md`, and `releases/<version>/release_notes.md`.
+2. Run `powershell -ExecutionPolicy Bypass -File scripts/release_check.ps1`.
+3. Push the release commit to `master`.
+4. Push a tag like `v2.7.0`.
+5. Wait for both workflows to finish, then verify the GitHub Release assets.
+
 ## Downloading Outputs
 
 After a workflow finishes, open the run in GitHub Actions and download:
@@ -78,6 +88,11 @@ After a workflow finishes, open the run in GitHub Actions and download:
 - `wenwen_tome-android-release`
 - `wenwen_tome-windows-installer`
 - `wenwen_tome-windows-dist`
+
+If the run was triggered by a `v*` tag, also verify the GitHub Release contains:
+
+- the Android APK
+- the Windows installer
 
 ## Notes
 

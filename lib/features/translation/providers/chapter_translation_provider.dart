@@ -225,6 +225,8 @@ class ChapterTranslationManager extends Notifier<Map<String, ChapterTranslationS
   }
 }
 
-final chapterTranslationProvider = NotifierProvider<ChapterTranslationManager, Map<String, ChapterTranslationState>>(() {
-  return ChapterTranslationManager();
-});
+final chapterTranslationProvider =
+    NotifierProvider<
+      ChapterTranslationManager,
+      Map<String, ChapterTranslationState>
+    >(ChapterTranslationManager.new);

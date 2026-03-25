@@ -9,6 +9,7 @@ import '../../reader/local_tts_model_manager.dart';
 import '../../reader/providers/reader_settings_provider.dart';
 import '../../translation/translation_config.dart';
 import '../../translation/translation_service.dart';
+// ignore: unused_import
 import '../../webnovel/defaults.dart';
 import '../providers/global_settings_provider.dart';
 
@@ -213,6 +214,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  // ignore: unused_element
   void _showSourcesDialog(BuildContext context) {
     showDialog<void>(
       context: context,

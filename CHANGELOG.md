@@ -2,6 +2,17 @@
 
 本文件记录近期可交付版本的主要变化。
 
+## [2.7.1] - 2026-03-25 「云端发布收尾」
+### 修复与优化
+- 修复翻译状态 provider 与当前 Riverpod / TranslationService 接口不匹配导致的编译错误，恢复全量分析可通过状态。
+- 对齐本地 TTS 下载策略测试与当前模型配置：现行为 1 个内置模型 + 3 个可下载模型，发布前检查重新稳定。
+- 收拢云端发布文档与版本元数据：`README`、云端构建说明、`release_notes.md`、`version.json`、`setup.iss` 口径统一到 tag 发布流程。
+
+### 测试与出包
+- flutter test
+- powershell -ExecutionPolicy Bypass -File scripts/release_check.ps1
+- 本地产物：Android APK + Windows 安装包均已生成，可直接推送并打 tag 触发 GitHub Release
+
 ## [2.7.0] - 2026-03-25 「Foliate 与 Legado 迁移起步」
 ### 新增
 - Android 本地阅读新增 `foliate-js` 资产宿主与 WebView bridge，`EPUB / TXT` 现在优先走 foliate 内容区，同时保留现有 Flutter 外层 UI。
