@@ -3,16 +3,20 @@ import '../../translation/translation_config.dart';
 import '../models.dart';
 import '../webnovel_repository.dart';
 import '../webnovel_download_manager.dart';
+import 'legado_platform_client.dart';
 
 class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   LegadoRepositoryBridge({
     LocalRuntimePlatform? platform,
     WebNovelRepositoryHandle? legacy,
+    LegadoPlatformClient? platformClient,
   }) : _platform = platform ?? detectLocalRuntimePlatform(),
-       _legacy = legacy ?? WebNovelRepository();
+       _legacy = legacy ?? WebNovelRepository(),
+       _platformClient = platformClient ?? LegadoPlatformClient();
 
   final LocalRuntimePlatform _platform;
   final WebNovelRepositoryHandle _legacy;
+  final LegadoPlatformClient _platformClient;
 
   bool get _isAndroidLegadoTarget =>
       _platform == LocalRuntimePlatform.android;
@@ -21,6 +25,7 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
     String capability,
     Future<T> Function() legacyOperation,
   ) async {
+    final _ = capability;
     if (_isAndroidLegadoTarget) {
       // Migration seam: Android webnovel capabilities will switch from the
       // legacy in-process repository to Legado-backed execution here.
@@ -29,8 +34,10 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   }
 
   @override
-  Future<void> prewarm() =>
-      _runLegadoOrFallback<void>('prewarm', _legacy.prewarm);
+  Future<void> prewarm() => _runLegadoOrFallback<void>('prewarm', () async {
+    await _platformClient.prewarm();
+    await _legacy.prewarm();
+  });
 
   @override
   Future<List<WebNovelSource>> listSources() => _legacy.listSources();
@@ -64,14 +71,23 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   }) {
     return _runLegadoOrFallback<List<WebNovelSearchResult>>(
       'searchBooks',
-      () => _legacy.searchBooks(
-        query,
-        sourceId: sourceId,
-        maxConcurrent: maxConcurrent,
-        requiredTags: requiredTags,
-        enableQueryExpansion: enableQueryExpansion,
-        enableWebFallback: enableWebFallback,
-      ),
+      () async =>
+          await _platformClient.searchBooks(
+            query: query,
+            sourceId: sourceId,
+            maxConcurrent: maxConcurrent,
+            requiredTags: requiredTags,
+            enableQueryExpansion: enableQueryExpansion,
+            enableWebFallback: enableWebFallback,
+          ) ??
+          await _legacy.searchBooks(
+            query,
+            sourceId: sourceId,
+            maxConcurrent: maxConcurrent,
+            requiredTags: requiredTags,
+            enableQueryExpansion: enableQueryExpansion,
+            enableWebFallback: enableWebFallback,
+          ),
     );
   }
 
@@ -86,14 +102,34 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   }) {
     return _runLegadoOrFallback<WebNovelSearchReport>(
       'searchBooksWithReport',
-      () => _legacy.searchBooksWithReport(
-        query,
-        sourceId: sourceId,
-        maxConcurrent: maxConcurrent,
-        requiredTags: requiredTags,
-        enableQueryExpansion: enableQueryExpansion,
-        enableWebFallback: enableWebFallback,
-      ),
+      () async {
+        final platformResults = await _platformClient.searchBooks(
+          query: query,
+          sourceId: sourceId,
+          maxConcurrent: maxConcurrent,
+          requiredTags: requiredTags,
+          enableQueryExpansion: enableQueryExpansion,
+          enableWebFallback: enableWebFallback,
+        );
+        if (platformResults != null) {
+          return WebNovelSearchReport(
+            query: query,
+            results: platformResults,
+            totalSources: 0,
+            directCandidates: 0,
+            failures: const <WebNovelSearchFailure>[],
+            enableQueryExpansion: enableQueryExpansion,
+          );
+        }
+        return _legacy.searchBooksWithReport(
+          query,
+          sourceId: sourceId,
+          maxConcurrent: maxConcurrent,
+          requiredTags: requiredTags,
+          enableQueryExpansion: enableQueryExpansion,
+          enableWebFallback: enableWebFallback,
+        );
+      },
     );
   }
 
@@ -155,7 +191,9 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   }) {
     return _runLegadoOrFallback<List<WebChapterRecord>>(
       'getChapters',
-      () => _legacy.getChapters(webBookId, refresh: refresh),
+      () async =>
+          await _platformClient.getChapters(webBookId, refresh: refresh) ??
+          await _legacy.getChapters(webBookId, refresh: refresh),
     );
   }
 
