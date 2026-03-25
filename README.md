@@ -1,31 +1,55 @@
-# 文文Tome
+# wenwen_tome
 
-文文Tome 是一个本地优先的跨平台电子书阅读器，当前主打 Windows 与 Android。
+`wenwen_tome` is a local-first reading app shell for Android and Windows.
 
-## 当前能力
-- 导入 EPUB、PDF、MOBI、AZW3、TXT、CBZ、CBR
-- 导入时可选择“另存到 App”或“直接引用源文件”
-- 阅读器支持 EPUB 正文提取、TXT 正文显示、PDF 阅读、漫画压缩包阅读
-- 网文模块支持搜书、网页搜索、URL 识别入库、书源导入导出、网页登录与 Cookie 管理
-- 移动端内置大书源包，首次进入网文页即可直接使用搜书链路
-- Windows 端已收敛为书架、同步、书源文件管理与更新日志查看
-- 本地翻译模型下载、检测、启动与停止
-- 本地 TTS 管理：内置中文声线、可下载扩展声线、Android 伴生引擎接入
-- 启动链支持非阻塞预热、安全模式与后台恢复
+Current direction:
+- Android local-book reading is being migrated to `foliate-js`.
+- Android webnovel capability is being migrated toward `Legado`-compatible integration.
+- Windows remains a library, backup, sync, and packaging endpoint. It is no longer the primary reading target.
+- The existing Flutter UI shell, navigation, bookshelf, settings, and sync structure stay in place.
 
-## 当前版本
-- 版本：`2.3.0+21`
-- 日期：`2026-03-09`
-- 代号：`聚焦与书源`
+Current version:
+- `2.6.12+39`
 
-## 打包命令
-- Android：`powershell -ExecutionPolicy Bypass -File scripts/build_android.ps1`
-- Windows：`powershell -ExecutionPolicy Bypass -File scripts/build_win.ps1`
-- Windows 安装包：`ISCC setup.iss`
+## License
 
-## 目录说明
-- `lib/`：业务代码
-- `test/`：回归测试
-- `assets/local_tts/`：随包 TTS 资源（仓库仅保留可直接随包的基础模型，超大扩展模型走下载）
-- `tools/`：本地打包与运行时工具
-- `releases/`：已生成版本产物
+This repository is now aligned with `GPL-3.0-only`.
+
+Rationale:
+- The Android webnovel migration path intentionally adopts `Legado` as the reference implementation and integration target.
+- `foliate-js` is used for local-book reading and remains MIT-licensed, which is compatible with distribution under GPL-3.0.
+
+See:
+- [LICENSE](/e:/Antigavity%20program/book/wenwen_tome/LICENSE)
+- [docs/plans/2026-03-25-foliate-legado-migration.md](/e:/Antigavity%20program/book/wenwen_tome/docs/plans/2026-03-25-foliate-legado-migration.md)
+- [docs/archive/legacy-reader-stack.md](/e:/Antigavity%20program/book/wenwen_tome/docs/archive/legacy-reader-stack.md)
+
+## Current Scope
+
+Supported app shell areas:
+- Bookshelf and local import flow
+- Reader shell and settings shell
+- Webnovel entry and source management shell
+- Sync and backup shell
+- Android and Windows cloud packaging
+
+Known migration state:
+- Legacy Flutter reader internals are preserved for archive and rollback reference.
+- New reading engine work should target `foliate-js` instead of expanding the legacy EPUB/TXT rendering core.
+- New webnovel work should target `Legado` integration instead of extending the current custom parser as the long-term direction.
+
+## Packaging
+
+Cloud builds are already working through GitHub Actions:
+- Android workflow: `.github/workflows/android-release.yml`
+- Windows workflow: `.github/workflows/windows-release.yml`
+
+Current workflows upload build artifacts. GitHub Releases automation is still a pending follow-up step.
+
+## Local Notes
+
+External upstream references are kept locally for migration work:
+- `third_party/foliate-js/`
+- `third_party/legado-reference/`
+
+These directories are intentionally ignored from the app repo for now. They are working references, not committed app source.
