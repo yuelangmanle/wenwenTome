@@ -9,7 +9,7 @@ Current direction:
 - The existing Flutter UI shell, navigation, bookshelf, settings, and sync structure stay in place.
 
 Current version:
-- `2.6.12+39`
+- `2.7.0+40`
 
 ## License
 

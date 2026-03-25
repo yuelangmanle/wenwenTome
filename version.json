@@ -1,10 +1,10 @@
 ﻿{
-  "version": "2.6.11",
-  "buildNumber": 38,
-  "releaseDate": "2026-03-11",
-  "codename": "全量收敛与网页阅读闭环",
+  "version": "2.7.0",
+  "buildNumber": 40,
+  "releaseDate": "2026-03-25",
+  "codename": "Foliate 与 Legado 迁移起步",
   "platform": {
-    "windows": "2.6.11+38",
-    "android": "2.6.11+38"
+    "windows": "2.7.0+40",
+    "android": "2.7.0+40"
   }
 }

@@ -40,6 +40,8 @@ GoRouter buildAppRouter({String initialLocation = '/'}) {
               routes: [
                 GoRoute(
                   path: '/webnovel',
+                  // Migration boundary: keep the Flutter shell route stable while
+                  // Android webnovel internals move to Legado behind this tab.
                   builder: (context, state) => WebNovelScreen(
                     initialBrowserUrl:
                         state.extra is String ? state.extra as String : null,
@@ -73,6 +75,8 @@ GoRouter buildAppRouter({String initialLocation = '/'}) {
       GoRoute(
         path: '/reader',
         builder: (context, state) {
+          // Migration boundary: keep the Flutter route stable while Android
+          // local reading migrates to foliate-js behind this shell.
           final book = state.extra;
           if (book is! Book) {
             return const _RouteErrorScreen(message: '缺少书籍参数，无法打开阅读器。');
@@ -123,6 +127,8 @@ class _AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop =
         detectLocalRuntimePlatform() == LocalRuntimePlatform.windows;
+    // Preserve the Flutter shell and tab layout while the Android reader and
+    // webnovel engines are replaced behind the existing UI.
     final tabs = isDesktop
         ? const <_ShellTab>[
             _ShellTab(

@@ -2,6 +2,16 @@
 
 本文件记录近期可交付版本的主要变化。
 
+## [2.7.0] - 2026-03-25 「Foliate 与 Legado 迁移起步」
+### 新增
+- Android 本地阅读新增 `foliate-js` 资产宿主与 WebView bridge，`EPUB / TXT` 现在优先走 foliate 内容区，同时保留现有 Flutter 外层 UI。
+- Android 网文默认仓储入口新增 `Legado` bridge seam，并接入 `MethodChannel('wenwen_tome/legado')` 的 fallback 路径，后续可直接接原生实现。
+- GitHub Actions tag 构建现已支持把 `apk` 和安装版 `exe` 自动挂到 GitHub Release。
+
+### 迁移与封存
+- 保留旧本地阅读和旧网文实现，不删除；文档明确了 Android 主路径、fallback 条件和 Windows 仅作为管理/备份壳的定位。
+- `foliate-js` 最小运行切片已 vendored 到 `assets/reader/foliate/`，为后续 Android 阅读桥接提供稳定宿主页。
+
 ## [2.6.12] - 2026-03-13 「分页稳定性与云端出包修复」
 ### 修复与优化
 - TXT 编码判定改为候选评分，优先在 `utf-8 / gb18030 / utf-16` 中选择更可读结果，减少长篇中文 TXT 被误判成乱码。

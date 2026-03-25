@@ -19,6 +19,7 @@ import '../../logging/run_event_tracker.dart';
 import '../../settings/providers/global_settings_provider.dart';
 import '../../translation/translation_config.dart';
 import '../ai_search_service.dart';
+import '../engine/legado_repository_factory.dart';
 import '../models.dart';
 import '../webnovel_repository.dart';
 import 'webnovel_cache_screen.dart';
@@ -30,7 +31,7 @@ class WebNovelScreen extends ConsumerStatefulWidget {
     super.key,
     WebNovelRepositoryHandle? repository,
     this.initialBrowserUrl,
-  }) : repository = repository ?? WebNovelRepository();
+  }) : repository = repository ?? createDefaultWebNovelRepositoryHandle();
 
   final WebNovelRepositoryHandle repository;
   final String? initialBrowserUrl;
@@ -41,6 +42,8 @@ class WebNovelScreen extends ConsumerStatefulWidget {
 
 class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
     with TickerProviderStateMixin {
+  // This Flutter page remains the webnovel product shell while Android source
+  // parsing and chapter delivery migrate toward Legado integration.
   static const int _autoCacheChapterCount = 20;
   final RunEventTracker _runEventTracker = RunEventTracker();
   final AiSearchService _aiSearchService = AiSearchService();
@@ -110,6 +113,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   bool _shouldBuildBrowserTab = false;
   bool _showSearchBackToTop = false;
 
+  // Migration boundary: keep the Flutter webnovel shell here while Android
+  // webnovel internals move to Legado behind this repository handle.
   WebNovelRepositoryHandle get _repository => widget.repository;
 
   bool get _isDesktop =>

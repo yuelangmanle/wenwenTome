@@ -1,7 +1,7 @@
 name: wenwen_tome
 description: "文文Tome - 本地优先跨平台电子书阅读器，支持 Windows 与 Android"
 publish_to: 'none'
-version: 2.6.12+39
+version: 2.7.0+40
 
 environment:
   sdk: ^3.11.0
@@ -73,6 +73,7 @@ flutter:
   assets:
     - CHANGELOG.md
     - assets/local_tts/
+    - assets/reader/foliate/
     - assets/webnovel/bundled_sources.json
   fonts:
     - family: MiSans
