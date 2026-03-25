@@ -330,6 +330,62 @@ class WenwenReaderHost {
         })
     }
 
+    beginTextDocument(payload) {
+        this._resetReaderSurface()
+        this.mode = 'text'
+        this._setShellVisible(true)
+        this.textSections = []
+        this._setSidebarMetadata({
+            title: payload?.title ?? 'Untitled Text',
+            author: payload?.author ?? '',
+        })
+
+        const article = $('#text-content')
+        article.replaceChildren()
+        const heading = document.createElement('h1')
+        heading.innerText = payload?.title ?? 'Untitled Text'
+        article.append(heading)
+        if (payload?.author) {
+            const author = document.createElement('div')
+            author.className = 'author'
+            author.innerText = payload.author
+            article.append(author)
+        }
+        $('#text-reader').classList.add('show')
+    }
+
+    appendTextSection(section) {
+        if (!section) return
+        const normalized = {
+            id: section.id ?? `section-${this.textSections.length}`,
+            title: section.title ?? `Section ${this.textSections.length + 1}`,
+            content: normalizeText(section.content ?? ''),
+        }
+        this.textSections.push(normalized)
+
+        const article = $('#text-content')
+        const element = document.createElement('section')
+        element.id = normalized.id
+        const title = document.createElement('h2')
+        title.innerText = normalized.title
+        const paragraph = document.createElement('div')
+        paragraph.innerText = normalized.content
+        element.append(title, paragraph)
+        article.append(element)
+    }
+
+    finishTextDocument() {
+        const sections = this.textSections.length
+            ? this.textSections
+            : [{ id: 'full-text', title: 'Full text', content: '' }]
+        this._renderTextToc(sections)
+        this._syncTextProgress()
+        this.notify('opened', {
+            mode: this.mode,
+            sections: sections.length,
+        })
+    }
+
     _renderTextToc(sections) {
         const root = document.createElement('ol')
         for (const section of sections) {
@@ -403,6 +459,9 @@ globalThis.WenwenReaderHost = {
     openEpubFile: file => host.openEpubFile(file),
     openEpubUrl: url => host.openEpubUrl(url),
     openText: payload => host.openText(payload),
+    beginTextDocument: payload => host.beginTextDocument(payload),
+    appendTextSection: section => host.appendTextSection(section),
+    finishTextDocument: () => host.finishTextDocument(),
     getMode: () => host.mode,
 }
 

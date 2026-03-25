@@ -19,7 +19,9 @@ import '../../logging/run_event_tracker.dart';
 import '../../settings/providers/global_settings_provider.dart';
 import '../../translation/translation_config.dart';
 import '../ai_search_service.dart';
+import '../engine/legado_platform_client.dart';
 import '../engine/legado_repository_factory.dart';
+import '../engine/legado_repository_bridge.dart';
 import '../models.dart';
 import '../webnovel_repository.dart';
 import 'webnovel_cache_screen.dart';
@@ -98,6 +100,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   bool _browserCanGoForward = false;
   _BrowserRecognitionState _recognitionState = _BrowserRecognitionState.idle;
   String _recognitionError = '';
+  LegadoPlatformStatus? _legadoPlatformStatus;
   String? _selectedSourceId;
   String? _selectedProviderId;
   final Set<String> _selectedSearchTags = <String>{};
@@ -117,6 +120,11 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   // webnovel internals move to Legado behind this repository handle.
   WebNovelRepositoryHandle get _repository => widget.repository;
 
+  LegadoRepositoryBridge? get _legadoRepositoryBridge {
+    final repository = _repository;
+    return repository is LegadoRepositoryBridge ? repository : null;
+  }
+
   bool get _isDesktop =>
       detectLocalRuntimePlatform() == LocalRuntimePlatform.windows;
 
@@ -130,6 +138,10 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
 
   Duration get _searchTimeout =>
       _isDesktop ? const Duration(seconds: 18) : const Duration(seconds: 30);
+
+  bool get _shouldShowLegadoStatusBanner =>
+      detectLocalRuntimePlatform() == LocalRuntimePlatform.android &&
+      _legadoRepositoryBridge != null;
 
   Future<T> _loadRepositorySection<T>(
     String label,
@@ -396,6 +408,22 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
         );
       }
 
+      LegadoPlatformStatus? legadoStatus = _legadoPlatformStatus;
+      final legadoBridge = _legadoRepositoryBridge;
+      if (legadoBridge != null) {
+        try {
+          legadoStatus = await legadoBridge.getPlatformStatus().timeout(
+            _repositoryListTimeout,
+          );
+        } catch (error) {
+          await AppRunLogService.instance.logError(
+            'Legado platform status load failed: $error',
+          );
+        }
+      } else {
+        legadoStatus = null;
+      }
+
       final sources = await _loadRepositorySection<List<WebNovelSource>>(
         'sources',
         _repository.listSources,
@@ -433,6 +461,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
       setState(() {
         _pageLoading = false;
         _loadError = loadError;
+        _legadoPlatformStatus = legadoStatus;
         _sources = sources;
         _indexedSources = sources
             .map(_SourceListEntry.fromSource)
@@ -548,12 +577,12 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
           return;
         }
         setState(() {
-        _bookSearchAttempted = true;
-        _bookResults = const <WebNovelSearchResult>[];
-        _aggregatedResults = const <WebNovelAggregatedResult>[];
-        _lastBookSearchReport = null;
-      });
-      _aiRerankRequestId++;
+          _bookSearchAttempted = true;
+          _bookResults = const <WebNovelSearchResult>[];
+          _aggregatedResults = const <WebNovelAggregatedResult>[];
+          _lastBookSearchReport = null;
+        });
+        _aiRerankRequestId++;
 
         final settings = ref.read(globalSettingsProvider);
         final completer = Completer<void>();
@@ -567,52 +596,52 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
               enableWebFallback: settings.enableWebFallbackInBookSearch,
             )
             .listen(
-          (update) {
-            if (requestId != _bookSearchRequestId) {
-              return;
-            }
-            _scheduleSearchUpdate(update);
-            if (update.isFinal && !completer.isCompleted) {
-              completer.complete();
-            }
-          },
-          onError: (error, stackTrace) {
-            unawaited(
-              AppRunLogService.instance.logError(
-                'WebNovel search stream failed: $query; $error\n$stackTrace',
-              ),
+              (update) {
+                if (requestId != _bookSearchRequestId) {
+                  return;
+                }
+                _scheduleSearchUpdate(update);
+                if (update.isFinal && !completer.isCompleted) {
+                  completer.complete();
+                }
+              },
+              onError: (error, stackTrace) {
+                unawaited(
+                  AppRunLogService.instance.logError(
+                    'WebNovel search stream failed: $query; $error\n$stackTrace',
+                  ),
+                );
+                if (!mounted || requestId != _bookSearchRequestId) {
+                  if (!completer.isCompleted) {
+                    completer.complete();
+                  }
+                  return;
+                }
+                setState(() {
+                  _bookSearchAttempted = true;
+                  _bookResults = const <WebNovelSearchResult>[];
+                  _aggregatedResults = const <WebNovelAggregatedResult>[];
+                  _lastBookSearchReport = null;
+                });
+                final message = error is TimeoutException
+                    ? '搜书超时：可尝试降低并发、切换书源或关闭关键词扩展后重试。'
+                    : '搜书失败：$error';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(message),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                if (!completer.isCompleted) {
+                  completer.complete();
+                }
+              },
+              onDone: () {
+                if (!completer.isCompleted) {
+                  completer.complete();
+                }
+              },
             );
-            if (!mounted || requestId != _bookSearchRequestId) {
-              if (!completer.isCompleted) {
-                completer.complete();
-              }
-              return;
-            }
-            setState(() {
-              _bookSearchAttempted = true;
-              _bookResults = const <WebNovelSearchResult>[];
-              _aggregatedResults = const <WebNovelAggregatedResult>[];
-              _lastBookSearchReport = null;
-            });
-            final message = error is TimeoutException
-                ? '搜书超时：可尝试降低并发、切换书源或关闭关键词扩展后重试。'
-                : '搜书失败：$error';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-            if (!completer.isCompleted) {
-              completer.complete();
-            }
-          },
-          onDone: () {
-            if (!completer.isCompleted) {
-              completer.complete();
-            }
-          },
-        );
 
         await completer.future.timeout(_searchTimeout);
       } catch (error) {
@@ -632,10 +661,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
             ? '搜书超时：可尝试降低并发、切换书源或关闭关键词扩展后重试。'
             : '搜书失败：$error';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
         );
       }
     });
@@ -644,7 +670,9 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   int _nextSearchConcurrency() {
     const options = <int>[2, 4, 6, 8, 10, 12];
     final current = options.indexOf(_searchConcurrency);
-    return current == -1 ? options.first : options[(current + 1) % options.length];
+    return current == -1
+        ? options.first
+        : options[(current + 1) % options.length];
   }
 
   String _searchFailureSummary(WebNovelSearchReport report) {
@@ -691,10 +719,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
   Widget _buildSearchResultsPanel() {
     if (_bookResults.isEmpty) {
       return Center(
-        child: Text(
-          _bookSearchEmptyHintText(),
-          textAlign: TextAlign.center,
-        ),
+        child: Text(_bookSearchEmptyHintText(), textAlign: TextAlign.center),
       );
     }
 
@@ -730,10 +755,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
         Expanded(
           child: TabBarView(
             controller: _searchResultsTabController,
-            children: [
-              _buildAggregatedResultsList(),
-              _buildRawResultsList(),
-            ],
+            children: [_buildAggregatedResultsList(), _buildRawResultsList()],
           ),
         ),
       ],
@@ -793,10 +815,7 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
       itemCount: _bookResults.length,
       itemBuilder: (context, index) {
         final result = _bookResults[index];
-        final safeTitle = sanitizeUiText(
-          result.title,
-          fallback: result.title,
-        );
+        final safeTitle = sanitizeUiText(result.title, fallback: result.title);
         final safeAuthor = sanitizeUiText(
           result.author,
           fallback: result.author,
@@ -808,8 +827,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
         final sourceLabel = _sourceNameById(result.sourceId);
         final originLabel =
             result.origin == WebNovelSearchResultOrigin.providerFallback
-                ? '网页兜底'
-                : '';
+            ? '网页兜底'
+            : '';
         return ListTile(
           leading: const Icon(Icons.menu_book_outlined),
           title: Text(safeTitle),
@@ -903,7 +922,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                           label: const Text('加入书架'),
                         ),
                         OutlinedButton.icon(
-                          onPressed: () => _openBrowserTarget(display.detailUrl),
+                          onPressed: () =>
+                              _openBrowserTarget(display.detailUrl),
                           icon: const Icon(Icons.open_in_browser),
                           label: const Text('打开网页'),
                         ),
@@ -913,10 +933,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                               : () async {
                                   setSheetState(() => resolving = true);
                                   try {
-                                    final updated =
-                                        await _repository.resolveSearchResultDetail(
-                                      display,
-                                    );
+                                    final updated = await _repository
+                                        .resolveSearchResultDetail(display);
                                     if (!context.mounted) {
                                       return;
                                     }
@@ -954,8 +972,11 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                         itemCount: aggregated.sources.length,
                         itemBuilder: (context, index) {
                           final sourceItem = aggregated.sources[index];
-                          final sourceName = _sourceNameById(sourceItem.sourceId);
-                          final originLabel = sourceItem.origin ==
+                          final sourceName = _sourceNameById(
+                            sourceItem.sourceId,
+                          );
+                          final originLabel =
+                              sourceItem.origin ==
                                   WebNovelSearchResultOrigin.providerFallback
                               ? '网页兜底'
                               : '';
@@ -969,10 +990,12 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                             ),
                             subtitle: Text(
                               [
-                                sourceName,
-                                originLabel,
-                                _safeText(sourceItem.author),
-                              ].where((item) => item.trim().isNotEmpty).join(' · '),
+                                    sourceName,
+                                    originLabel,
+                                    _safeText(sourceItem.author),
+                                  ]
+                                  .where((item) => item.trim().isNotEmpty)
+                                  .join(' · '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -980,7 +1003,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                               icon: const Icon(Icons.library_add),
                               onPressed: () => _addSearchResult(sourceItem),
                             ),
-                            onTap: () => _openBrowserTarget(sourceItem.detailUrl),
+                            onTap: () =>
+                                _openBrowserTarget(sourceItem.detailUrl),
                           );
                         },
                       ),
@@ -1733,7 +1757,8 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
     }
     try {
       final result = await controller.evaluateJavascript(
-        source: 'document.documentElement ? document.documentElement.outerHTML : ""',
+        source:
+            'document.documentElement ? document.documentElement.outerHTML : ""',
       );
       if (result == null) {
         return null;
@@ -1875,11 +1900,12 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
 
     final preview = _preview;
     if (preview != null) {
-      final tocLinks = preview.article.detectedTocLinks
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false)
-        ..sort((left, right) => _compareTocLinkPriority(left, right));
+      final tocLinks =
+          preview.article.detectedTocLinks
+              .map((item) => item.trim())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false)
+            ..sort((left, right) => _compareTocLinkPriority(left, right));
       for (final link in tocLinks) {
         addCandidate(link);
       }
@@ -2167,14 +2193,12 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
         final currentUrl = (_preview?.article.url ?? _browserUrl).trim();
         var startIndex = 0;
         if (currentUrl.isNotEmpty) {
-          final normalizedCurrent = Uri.tryParse(currentUrl)
-                  ?.replace(fragment: '')
-                  .toString() ??
+          final normalizedCurrent =
+              Uri.tryParse(currentUrl)?.replace(fragment: '').toString() ??
               currentUrl;
           final matchIndex = chapters.indexWhere((chapter) {
-            final normalized = Uri.tryParse(chapter.url)
-                    ?.replace(fragment: '')
-                    .toString() ??
+            final normalized =
+                Uri.tryParse(chapter.url)?.replace(fragment: '').toString() ??
                 chapter.url;
             return normalized == normalizedCurrent;
           });
@@ -2283,9 +2307,9 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
         .length;
     final message =
         '导入 ${report.importedCount}/${report.totalEntries}（更新 ${report.updatedCount}），兼容映射 ${report.legacyMappedCount}，跳过 $skippedCount，失败 $failedCount。';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
 
     String statusLabel(SourceImportEntryStatus status) {
       switch (status) {
@@ -2813,6 +2837,139 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
     );
   }
 
+  Future<void> _refreshLegadoPlatformStatus() async {
+    final bridge = _legadoRepositoryBridge;
+    if (bridge == null) {
+      return;
+    }
+    try {
+      final status = await bridge.getPlatformStatus().timeout(
+        _repositoryListTimeout,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _legadoPlatformStatus = status);
+    } catch (error) {
+      await AppRunLogService.instance.logError(
+        'Legado platform status refresh failed: $error',
+      );
+    }
+  }
+
+  Widget _buildLegadoStatusBanner() {
+    final status = _legadoPlatformStatus;
+    if (!_shouldShowLegadoStatusBanner || status == null) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    late IconData icon;
+    late Color backgroundColor;
+    late Color foregroundColor;
+    late String title;
+    late String detail;
+
+    if (!status.installed) {
+      icon = Icons.phonelink_erase_rounded;
+      backgroundColor = theme.colorScheme.errorContainer;
+      foregroundColor = theme.colorScheme.onErrorContainer;
+      title = '未检测到 Legado';
+      detail = '当前会回退到 Flutter 书源链路。若要命中原生 Legado，请先在手机安装并打开 Legado。';
+    } else if (!status.searchReady) {
+      icon = Icons.sync_problem_rounded;
+      backgroundColor = theme.colorScheme.errorContainer;
+      foregroundColor = theme.colorScheme.onErrorContainer;
+      title = 'Legado 已安装，但搜索未连通';
+      detail =
+          'Legado 的 WebSocket 搜索服务未就绪，当前搜索会回退到 Flutter 书源。请在 Legado 中开启 Web Service。';
+    } else if (!status.chapterReady) {
+      icon = Icons.warning_amber_rounded;
+      backgroundColor = theme.colorScheme.tertiaryContainer;
+      foregroundColor = theme.colorScheme.onTertiaryContainer;
+      title = 'Legado 搜索已连通，目录仍会回退';
+      detail =
+          '现在原生搜书可用，但 Legado 的 HTTP Web Service 未开启，目录和正文仍会退回 Flutter 侧规则。';
+    } else {
+      icon = Icons.check_circle_rounded;
+      backgroundColor = theme.colorScheme.primaryContainer;
+      foregroundColor = theme.colorScheme.onPrimaryContainer;
+      title = 'Legado 已连接';
+      detail = '原生搜索和目录获取都可用；当前 Android 会优先使用 Legado，再按需回退。';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Material(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: foregroundColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _refreshLegadoPlatformStatus,
+                    child: const Text('刷新状态'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                detail,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: foregroundColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Chip(
+                    avatar: Icon(
+                      status.searchReady ? Icons.check : Icons.close,
+                      size: 18,
+                    ),
+                    label: Text(
+                      status.searchReady
+                          ? '搜索 WebSocket 已连通'
+                          : '搜索 WebSocket 未连通',
+                    ),
+                  ),
+                  Chip(
+                    avatar: Icon(
+                      status.chapterReady ? Icons.check : Icons.close,
+                      size: 18,
+                    ),
+                    label: Text(
+                      status.chapterReady
+                          ? 'Web Service 已开启'
+                          : 'Web Service 未开启',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasContent =
@@ -2843,92 +3000,94 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
       child: DefaultTabController(
         length: tabs.length,
         child: Scaffold(
-        appBar: AppBar(
-          title: const Text('网文中心'),
-          actions: [
-            if (!_isDesktop)
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'sources') {
-                    if (context.mounted) {
-                      context.push('/source-files');
+          appBar: AppBar(
+            title: const Text('网文中心'),
+            actions: [
+              if (!_isDesktop)
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'sources') {
+                      if (context.mounted) {
+                        context.push('/source-files');
+                      }
+                    } else if (value == 'cache') {
+                      unawaited(
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => WebNovelCacheScreen(),
+                          ),
+                        ),
+                      );
+                    } else if (value == 'sessions') {
+                      unawaited(_showSessionsSheet());
+                    } else if (value == 'save_session') {
+                      unawaited(_saveCurrentWebSession());
+                    } else if (value == 'history') {
+                      unawaited(_showHistorySheet());
                     }
-                  } else if (value == 'cache') {
-                    unawaited(
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => WebNovelCacheScreen(),
-                        ),
-                      ),
-                    );
-                  } else if (value == 'sessions') {
-                    unawaited(_showSessionsSheet());
-                  } else if (value == 'save_session') {
-                    unawaited(_saveCurrentWebSession());
-                  } else if (value == 'history') {
-                    unawaited(_showHistorySheet());
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'save_session', child: Text('保存会话')),
-                  PopupMenuItem(value: 'sources', child: Text('书源管理')),
-                  PopupMenuItem(value: 'cache', child: Text('缓存')),
-                  PopupMenuItem(value: 'sessions', child: Text('会话')),
-                  PopupMenuItem(value: 'history', child: Text('历史')),
-                ],
-              ),
-          ],
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabs: tabs,
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'save_session', child: Text('保存会话')),
+                    PopupMenuItem(value: 'sources', child: Text('书源管理')),
+                    PopupMenuItem(value: 'cache', child: Text('缓存')),
+                    PopupMenuItem(value: 'sessions', child: Text('会话')),
+                    PopupMenuItem(value: 'history', child: Text('历史')),
+                  ],
+                ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabs: tabs,
+            ),
           ),
-        ),
-        body: _pageLoading && !hasContent
-            ? const Center(child: CircularProgressIndicator())
-            : _loadError != null && !hasContent
-            ? _buildLoadFailureState()
-            : Stack(
-                children: [
-                  Column(
-                    children: [
-                      if (_loadError != null)
-                        _buildLoadWarningBanner(_loadError!),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _isDesktop
-                                ? _buildBookSearchTab()
-                                : _buildMobileBookSearchTab(),
-                            _shouldBuildBrowserTab
-                                ? _buildBrowserTab()
-                                : _buildBrowserPlaceholder(),
-                            if (_isDesktop) _buildSourcesDesktopTab(),
-                            if (_isDesktop) _buildSessionsDesktopTab(),
-                          ],
+          body: _pageLoading && !hasContent
+              ? const Center(child: CircularProgressIndicator())
+              : _loadError != null && !hasContent
+              ? _buildLoadFailureState()
+              : Stack(
+                  children: [
+                    Column(
+                      children: [
+                        if (_loadError != null)
+                          _buildLoadWarningBanner(_loadError!),
+                        if (_shouldShowLegadoStatusBanner)
+                          _buildLegadoStatusBanner(),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _isDesktop
+                                  ? _buildBookSearchTab()
+                                  : _buildMobileBookSearchTab(),
+                              _shouldBuildBrowserTab
+                                  ? _buildBrowserTab()
+                                  : _buildBrowserPlaceholder(),
+                              if (_isDesktop) _buildSourcesDesktopTab(),
+                              if (_isDesktop) _buildSessionsDesktopTab(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_busy)
+                      const Positioned.fill(
+                        child: ColoredBox(
+                          color: Color(0x33000000),
+                          child: Center(child: CircularProgressIndicator()),
                         ),
                       ),
-                    ],
-                  ),
-                  if (_busy)
-                    const Positioned.fill(
-                      child: ColoredBox(
-                        color: Color(0x33000000),
-                        child: Center(child: CircularProgressIndicator()),
+                    if (_tabController.index == 0 && _showSearchBackToTop)
+                      Positioned(
+                        right: 16,
+                        bottom: 16,
+                        child: FloatingActionButton.small(
+                          onPressed: _scrollSearchResultsToTop,
+                          child: const Icon(Icons.vertical_align_top),
+                        ),
                       ),
-                    ),
-                  if (_tabController.index == 0 && _showSearchBackToTop)
-                    Positioned(
-                      right: 16,
-                      bottom: 16,
-                      child: FloatingActionButton.small(
-                        onPressed: _scrollSearchResultsToTop,
-                        child: const Icon(Icons.vertical_align_top),
-                      ),
-                    ),
-                ],
-              ),
+                  ],
+                ),
         ),
       ),
     );
@@ -3652,7 +3811,9 @@ class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
                   label: const Text('Info'),
                 ),
                 FilledButton.icon(
-                  onPressed: preview == null ? null : _enterReaderModeFromBrowser,
+                  onPressed: preview == null
+                      ? null
+                      : _enterReaderModeFromBrowser,
                   icon: const Icon(Icons.chrome_reader_mode),
                   label: const Text('进入阅读模式'),
                 ),

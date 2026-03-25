@@ -8,17 +8,15 @@ import '../../../app/runtime_platform.dart';
 import 'foliate_host_runtime.dart';
 
 class FoliateBridgeEvent {
-  const FoliateBridgeEvent({
-    required this.type,
-    required this.detail,
-  });
+  const FoliateBridgeEvent({required this.type, required this.detail});
 
   final String type;
   final Map<String, Object?> detail;
 
   factory FoliateBridgeEvent.fromDynamic(dynamic value) {
-    final payload =
-        value is Map ? Map<String, Object?>.from(value.cast<String, Object?>()) : const <String, Object?>{};
+    final payload = value is Map
+        ? Map<String, Object?>.from(value.cast<String, Object?>())
+        : const <String, Object?>{};
     final detailValue = payload['detail'];
     return FoliateBridgeEvent(
       type: payload['type']?.toString() ?? 'unknown',
@@ -48,6 +46,7 @@ class FoliateTextSection {
 }
 
 class FoliateReaderBridgeController {
+  static const int _chunkedTextThreshold = 180000;
   InAppWebViewController? _webViewController;
   final Completer<void> _readyCompleter = Completer<void>();
   bool _disposed = false;
@@ -83,9 +82,7 @@ class FoliateReaderBridgeController {
 
   Future<void> openEpubFile(String filePath) async {
     final uri = Uri.file(filePath).toString();
-    await _invoke(
-      'window.WenwenReaderHost?.openEpubUrl(${jsonEncode(uri)});',
-    );
+    await _invoke('window.WenwenReaderHost?.openEpubUrl(${jsonEncode(uri)});');
   }
 
   Future<void> openText({
@@ -94,15 +91,56 @@ class FoliateReaderBridgeController {
     String? author,
     List<FoliateTextSection> sections = const <FoliateTextSection>[],
   }) async {
+    if (_shouldChunkTextPayload(text: text, sections: sections)) {
+      await _openTextChunked(
+        title: title,
+        author: author,
+        sections: sections.isEmpty
+            ? <FoliateTextSection>[
+                FoliateTextSection(
+                  id: 'full-text',
+                  title: title,
+                  content: text,
+                ),
+              ]
+            : sections,
+      );
+      return;
+    }
     final payload = <String, Object?>{
       'title': title,
       'author': author,
       'text': text,
       'sections': sections.map((section) => section.toJson()).toList(),
     };
+    await _invoke('window.WenwenReaderHost?.openText(${jsonEncode(payload)});');
+  }
+
+  bool _shouldChunkTextPayload({
+    required String text,
+    required List<FoliateTextSection> sections,
+  }) {
+    if (sections.length > 1) {
+      return true;
+    }
+    return text.length >= _chunkedTextThreshold;
+  }
+
+  Future<void> _openTextChunked({
+    required String title,
+    required String? author,
+    required List<FoliateTextSection> sections,
+  }) async {
+    final metadata = <String, Object?>{'title': title, 'author': author};
     await _invoke(
-      'window.WenwenReaderHost?.openText(${jsonEncode(payload)});',
+      'window.WenwenReaderHost?.beginTextDocument(${jsonEncode(metadata)});',
     );
+    for (final section in sections) {
+      await _invoke(
+        'window.WenwenReaderHost?.appendTextSection(${jsonEncode(section.toJson())});',
+      );
+    }
+    await _invoke('window.WenwenReaderHost?.finishTextDocument?.();');
   }
 
   Future<void> goLeft() async {
@@ -115,9 +153,7 @@ class FoliateReaderBridgeController {
 
   Future<void> seekToFraction(double fraction) async {
     final normalized = fraction.clamp(0.0, 1.0);
-    await _invoke(
-      'window.WenwenReaderHost?.seekToFraction?.($normalized);',
-    );
+    await _invoke('window.WenwenReaderHost?.seekToFraction?.($normalized);');
   }
 
   Future<void> _invoke(String source) async {
@@ -167,7 +203,9 @@ class _FoliateReaderBridgeState extends State<FoliateReaderBridge> {
   Widget build(BuildContext context) {
     if (!_isSupportedPlatform) {
       return widget.unsupportedBuilder?.call(context) ??
-          const Center(child: Text('foliate bridge is only enabled on Android.'));
+          const Center(
+            child: Text('foliate bridge is only enabled on Android.'),
+          );
     }
 
     return Stack(
@@ -207,7 +245,8 @@ class _FoliateReaderBridgeState extends State<FoliateReaderBridge> {
         ),
         if (!_pageLoaded)
           Positioned.fill(
-            child: widget.loadingBuilder?.call(context) ??
+            child:
+                widget.loadingBuilder?.call(context) ??
                 const ColoredBox(
                   color: Colors.transparent,
                   child: Center(child: CircularProgressIndicator()),

@@ -1184,7 +1184,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _fullTextLength = _txtContent.length;
         _fullTextLoaded = true;
         _txtToc = const <ReaderTocEntry>[];
-        _textSections = const <_ReaderTextSection>[];
+        _rebuildTextRenderingState();
         _metaText = 'TXT encoding: ${decoded.encoding}\nfoliate-js ready';
       } else {
         _metaText = 'EPUB foliate-js ready';
@@ -1210,6 +1210,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           title: resolved.title,
           author: resolved.author,
           text: _txtContent,
+          sections: _foliateTextSections(),
         );
       }
     } catch (error) {
@@ -1228,6 +1229,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
+  List<FoliateTextSection> _foliateTextSections() {
+    if (_txtContent.isEmpty) {
+      return const <FoliateTextSection>[];
+    }
+    final sections = _textSections.isEmpty
+        ? <_ReaderTextSection>[
+            _ReaderTextSection(
+              title: widget.book.title,
+              startOffset: 0,
+              endOffset: _txtContent.length,
+            ),
+          ]
+        : _textSections;
+    return <FoliateTextSection>[
+      for (var index = 0; index < sections.length; index++)
+        FoliateTextSection(
+          id: 'text-section-$index',
+          title: sections[index].title,
+          content: _txtContent.substring(
+            sections[index].startOffset.clamp(0, _txtContent.length),
+            sections[index].endOffset.clamp(0, _txtContent.length),
+          ),
+        ),
+    ];
+  }
+
   void _handleFoliateBridgeEvent(FoliateBridgeEvent event) {
     if (event.type == 'opened' && !_foliateInitialPositionRestored) {
       _foliateInitialPositionRestored = true;
@@ -1244,10 +1271,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       final normalized = fraction.clamp(0.0, 1.0);
       _textProgress = normalized;
       _updateEtaBaseline(normalized);
-      final position = (_effectiveTextLength > 0
-              ? _effectiveTextLength * normalized
-              : normalized * 1000000)
-          .round();
+      final position =
+          (_effectiveTextLength > 0
+                  ? _effectiveTextLength * normalized
+                  : normalized * 1000000)
+              .round();
       _textProgressDebounce?.cancel();
       _textProgressDebounce = Timer(const Duration(milliseconds: 160), () {
         unawaited(_updateReadingProgress(position, normalized));

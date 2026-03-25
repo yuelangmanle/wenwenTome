@@ -1,4 +1,5 @@
 import '../../../app/runtime_platform.dart';
+import '../../logging/app_run_log_service.dart';
 import '../../translation/translation_config.dart';
 import '../models.dart';
 import '../webnovel_repository.dart';
@@ -18,8 +19,15 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   final WebNovelRepositoryHandle _legacy;
   final LegadoPlatformClient _platformClient;
 
-  bool get _isAndroidLegadoTarget =>
-      _platform == LocalRuntimePlatform.android;
+  Future<WebNovelBookMeta?> _legacyMeta(String webBookId) async {
+    final repository = _legacy;
+    if (repository is WebNovelRepository) {
+      return repository.getBookMeta(webBookId);
+    }
+    return null;
+  }
+
+  bool get _isAndroidLegadoTarget => _platform == LocalRuntimePlatform.android;
 
   Future<T> _runLegadoOrFallback<T>(
     String capability,
@@ -141,14 +149,39 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
     List<String> requiredTags = const <String>[],
     bool enableQueryExpansion = true,
     bool enableWebFallback = false,
-  }) => _legacy.searchBooksStream(
-    query,
-    sourceId: sourceId,
-    maxConcurrent: maxConcurrent,
-    requiredTags: requiredTags,
-    enableQueryExpansion: enableQueryExpansion,
-    enableWebFallback: enableWebFallback,
-  );
+  }) async* {
+    if (_isAndroidLegadoTarget) {
+      final platformResults = await _platformClient.searchBooks(
+        query: query,
+        sourceId: sourceId,
+        maxConcurrent: maxConcurrent,
+        requiredTags: requiredTags,
+        enableQueryExpansion: enableQueryExpansion,
+        enableWebFallback: enableWebFallback,
+      );
+      if (platformResults != null) {
+        yield WebNovelSearchUpdate(
+          query: query,
+          results: platformResults,
+          aggregatedResults: const <WebNovelAggregatedResult>[],
+          totalSources: 0,
+          directCandidates: 0,
+          failures: const <WebNovelSearchFailure>[],
+          enableQueryExpansion: enableQueryExpansion,
+          isFinal: true,
+        );
+        return;
+      }
+    }
+    yield* _legacy.searchBooksStream(
+      query,
+      sourceId: sourceId,
+      maxConcurrent: maxConcurrent,
+      requiredTags: requiredTags,
+      enableQueryExpansion: enableQueryExpansion,
+      enableWebFallback: enableWebFallback,
+    );
+  }
 
   @override
   Future<List<WebSearchHit>> webSearch(String query, {String? providerId}) =>
@@ -165,7 +198,9 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   }) => _legacy.detectReaderModeFromHtml(html: html, url: url);
 
   @override
-  Future<WebNovelBookMeta> addBookFromSearchResult(WebNovelSearchResult result) {
+  Future<WebNovelBookMeta> addBookFromSearchResult(
+    WebNovelSearchResult result,
+  ) {
     return _runLegadoOrFallback<WebNovelBookMeta>(
       'addBookFromSearchResult',
       () => _legacy.addBookFromSearchResult(result),
@@ -178,7 +213,8 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   ) => _legacy.resolveSearchResultDetail(result);
 
   @override
-  Future<WebNovelBookMeta> addBookFromUrl(String url) => _legacy.addBookFromUrl(url);
+  Future<WebNovelBookMeta> addBookFromUrl(String url) =>
+      _legacy.addBookFromUrl(url);
 
   @override
   Future<WebNovelBookMeta?> findBookMetaByUrl(String url) =>
@@ -189,12 +225,42 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
     String webBookId, {
     bool refresh = false,
   }) {
-    return _runLegadoOrFallback<List<WebChapterRecord>>(
-      'getChapters',
-      () async =>
-          await _platformClient.getChapters(webBookId, refresh: refresh) ??
-          await _legacy.getChapters(webBookId, refresh: refresh),
-    );
+    return _runLegadoOrFallback<
+      List<WebChapterRecord>
+    >('getChapters', () async {
+      final meta = await _legacyMeta(webBookId);
+      final platformChapters = await _platformClient.getChapters(
+        webBookId,
+        meta: meta,
+        refresh: refresh,
+      );
+      if (platformChapters != null && platformChapters.isNotEmpty) {
+        final repository = _legacy;
+        if (meta != null && repository is WebNovelRepository) {
+          try {
+            final source = await repository.getSourceById(meta.sourceId);
+            return await repository.persistExternalChapters(
+              meta,
+              platformChapters,
+              source: source,
+            );
+          } catch (error, stackTrace) {
+            await AppRunLogService.instance.logError(
+              'legado chapter persistence failed: $webBookId; $error\n$stackTrace',
+            );
+          }
+        }
+        return platformChapters;
+      }
+      return _legacy.getChapters(webBookId, refresh: refresh);
+    });
+  }
+
+  Future<LegadoPlatformStatus?> getPlatformStatus() {
+    if (!_isAndroidLegadoTarget) {
+      return Future<LegadoPlatformStatus?>.value(null);
+    }
+    return _platformClient.getStatus();
   }
 
   @override
@@ -256,7 +322,8 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   Future<void> resumeAllDownloads() => _legacy.resumeAllDownloads();
 
   @override
-  Future<void> clearTerminalDownloadTasks() => _legacy.clearTerminalDownloadTasks();
+  Future<void> clearTerminalDownloadTasks() =>
+      _legacy.clearTerminalDownloadTasks();
 
   @override
   Future<void> clearAllDownloadTasks() => _legacy.clearAllDownloadTasks();
@@ -315,7 +382,8 @@ class LegadoRepositoryBridge implements WebNovelRepositoryHandle {
   );
 
   @override
-  Future<void> clearSession(String sessionId) => _legacy.clearSession(sessionId);
+  Future<void> clearSession(String sessionId) =>
+      _legacy.clearSession(sessionId);
 
   @override
   Future<void> setSourceEnabled(String sourceId, bool enabled) =>

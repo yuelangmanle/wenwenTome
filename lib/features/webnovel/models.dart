@@ -450,6 +450,7 @@ class WebNovelSearchResult {
     this.coverUrl = '',
     this.description = '',
     this.origin = WebNovelSearchResultOrigin.direct,
+    this.platformPayload = '',
   });
 
   final String sourceId;
@@ -459,6 +460,7 @@ class WebNovelSearchResult {
   final String coverUrl;
   final String description;
   final WebNovelSearchResultOrigin origin;
+  final String platformPayload;
 }
 
 enum WebNovelSearchResultOrigin { direct, providerFallback }
@@ -626,6 +628,7 @@ class WebNovelBookMeta {
     this.lastChapterTitle = '',
     this.updatedAt,
     this.sourceSnapshot = '',
+    this.platformPayload = '',
     this.chapterSyncStatus = WebChapterSyncStatus.pending,
     this.chapterSyncError = '',
     this.chapterSyncRetryCount = 0,
@@ -644,6 +647,7 @@ class WebNovelBookMeta {
   final String lastChapterTitle;
   final DateTime? updatedAt;
   final String sourceSnapshot;
+  final String platformPayload;
   final WebChapterSyncStatus chapterSyncStatus;
   final String chapterSyncError;
   final int chapterSyncRetryCount;
@@ -662,6 +666,7 @@ class WebNovelBookMeta {
     'lastChapterTitle': lastChapterTitle,
     'updatedAt': updatedAt?.toIso8601String(),
     'sourceSnapshot': sourceSnapshot,
+    'platformPayload': platformPayload,
     'chapterSyncStatus': chapterSyncStatus.storageValue,
     'chapterSyncError': chapterSyncError,
     'chapterSyncRetryCount': chapterSyncRetryCount,
@@ -684,6 +689,7 @@ class WebNovelBookMeta {
             ? null
             : DateTime.tryParse(json['updatedAt'] as String),
         sourceSnapshot: json['sourceSnapshot'] as String? ?? '',
+        platformPayload: json['platformPayload'] as String? ?? '',
         chapterSyncStatus: WebChapterSyncStatusX.fromStorageValue(
           json['chapterSyncStatus'] as String?,
         ),

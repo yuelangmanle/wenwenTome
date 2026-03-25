@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.view.KeyEvent
+import com.wenwentome.wenwen_tome.legado.LegadoBridge
 import com.tekartik.sqflite.SqflitePlugin
 import dev.fluttercommunity.plus.share.SharePlusPlugin
 import io.flutter.embedding.android.FlutterActivity
@@ -18,6 +19,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     companion object {
         private const val COMPANION_CHANNEL = "wenwen_tome/android_companion"
+        private const val LEGADO_CHANNEL = "wenwen_tome/legado"
         private const val READER_VOLUME_CONTROL_CHANNEL = "wenwen_tome/reader_volume_control"
         private const val READER_VOLUME_EVENT_CHANNEL = "wenwen_tome/reader_volume_events"
         private const val COMPANION_PACKAGE = "com.wenwentome.tts_companion"
@@ -27,10 +29,12 @@ class MainActivity : FlutterActivity() {
 
     private var volumePagingEnabled: Boolean = false
     private var volumeEventSink: EventChannel.EventSink? = null
+    private lateinit var legadoBridge: LegadoBridge
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         ensureCorePlugins(flutterEngine)
+        legadoBridge = LegadoBridge(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMPANION_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -38,6 +42,10 @@ class MainActivity : FlutterActivity() {
                     "isCompanionInstalled" -> result.success(isCompanionInstalled())
                     else -> result.notImplemented()
                 }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LEGADO_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                legadoBridge.handle(call, result)
             }
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -67,6 +75,13 @@ class MainActivity : FlutterActivity() {
                 }
             },
         )
+    }
+
+    override fun onDestroy() {
+        if (::legadoBridge.isInitialized) {
+            legadoBridge.dispose()
+        }
+        super.onDestroy()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

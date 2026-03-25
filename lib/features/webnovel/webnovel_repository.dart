@@ -22,6 +22,7 @@ import '../logging/app_run_log_service.dart';
 import '../translation/translation_config.dart';
 import '../translation/translation_service.dart';
 import 'defaults.dart';
+import 'engine/legado_platform_client.dart';
 import 'models.dart';
 import 'webnovel_download_manager.dart';
 
@@ -298,12 +299,15 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
 
   final LibraryService _libraryService = LibraryService();
   final TranslationService _translationService = TranslationService();
+  final LegadoPlatformClient _legadoPlatformClient = LegadoPlatformClient();
   final http.Client _client;
   final Future<String> Function(String fileName)? _databasePathProvider;
   final Future<String?> Function() _bundledSourcePackLoader;
   final Future<void> Function(Duration) _retryDelay;
   final DateTime Function() _now;
   final bool _autoSyncOnAdd;
+  late final LocalRuntimePlatform _runtimePlatform =
+      detectLocalRuntimePlatform();
   Database? _db;
   Future<void>? _prewarmFuture;
   Future<void>? _legacyMigrationFuture;
@@ -352,6 +356,9 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
 
   Future<void> _doPrewarm() async {
     await ensureInitialized();
+    if (_runtimePlatform == LocalRuntimePlatform.android) {
+      await _legadoPlatformClient.prewarm();
+    }
     _scheduleLegacyMigration();
     _resumePendingChapterSyncTasks();
     await _ensureDownloadManagerStarted();
@@ -416,7 +423,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     return appDatabaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE web_sources (
@@ -439,6 +446,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
               last_chapter_title TEXT NOT NULL DEFAULT '',
               updated_at INTEGER,
               source_snapshot TEXT NOT NULL DEFAULT '',
+              platform_payload TEXT NOT NULL DEFAULT '',
               chapter_sync_status TEXT NOT NULL DEFAULT 'pending',
               chapter_sync_error TEXT NOT NULL DEFAULT '',
               chapter_sync_retry_count INTEGER NOT NULL DEFAULT 0,
@@ -653,6 +661,11 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
             ''');
             await db.execute(
               'CREATE INDEX IF NOT EXISTS idx_web_source_versions_source ON web_source_versions(source_id, created_at)',
+            );
+          }
+          if (oldVersion < 5) {
+            await db.execute(
+              "ALTER TABLE web_books ADD COLUMN platform_payload TEXT NOT NULL DEFAULT ''",
             );
           }
         },
@@ -2392,6 +2405,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       'last_chapter_title': meta.lastChapterTitle,
       'updated_at': meta.updatedAt?.millisecondsSinceEpoch,
       'source_snapshot': meta.sourceSnapshot,
+      'platform_payload': meta.platformPayload,
       'chapter_sync_status': meta.chapterSyncStatus.storageValue,
       'chapter_sync_error': meta.chapterSyncError,
       'chapter_sync_retry_count': meta.chapterSyncRetryCount,
@@ -2436,6 +2450,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
             ? null
             : DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
         sourceSnapshot: row['source_snapshot'] as String? ?? '',
+        platformPayload: row['platform_payload'] as String? ?? '',
         chapterSyncStatus: WebChapterSyncStatusX.fromStorageValue(
           row['chapter_sync_status'] as String?,
         ),
@@ -2513,6 +2528,14 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       }
     }
 
+    final platformChapters = await _loadPlatformChapters(
+      meta,
+      refresh: refresh,
+    );
+    if (platformChapters != null && platformChapters.isNotEmpty) {
+      return platformChapters;
+    }
+
     if (meta.detailUrl.isEmpty) {
       return const <WebChapterRecord>[];
     }
@@ -2541,6 +2564,99 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       return const <WebChapterRecord>[];
     }
     return _ensureSinglePageFallbackChapter(db: db, meta: meta, source: source);
+  }
+
+  Future<List<WebChapterRecord>> persistExternalChapters(
+    WebNovelBookMeta meta,
+    List<WebChapterRecord> chapters, {
+    WebNovelSource? source,
+  }) async {
+    if (chapters.isEmpty) {
+      return const <WebChapterRecord>[];
+    }
+
+    final ordered = chapters.toList(growable: false)
+      ..sort((left, right) => left.chapterIndex.compareTo(right.chapterIndex));
+    final deduped = <String, WebChapterRecord>{};
+    for (var index = 0; index < ordered.length; index++) {
+      final chapter = ordered[index];
+      final key = chapter.url.trim().isNotEmpty
+          ? chapter.url.trim()
+          : '${chapter.title.trim()}::$index';
+      deduped[key] = WebChapterRecord(
+        id: chapter.id.trim().isNotEmpty ? chapter.id : '${meta.id}::$index',
+        webBookId: meta.id,
+        sourceId: chapter.sourceId.trim().isNotEmpty
+            ? chapter.sourceId
+            : meta.sourceId,
+        title: chapter.title,
+        url: chapter.url,
+        chapterIndex: index,
+        updatedAt: chapter.updatedAt,
+      );
+    }
+
+    final syncedMeta = WebNovelBookMeta(
+      id: meta.id,
+      libraryBookId: meta.libraryBookId,
+      sourceId: meta.sourceId,
+      title: meta.title,
+      author: meta.author,
+      detailUrl: meta.detailUrl,
+      originUrl: meta.originUrl,
+      coverUrl: meta.coverUrl,
+      description: meta.description,
+      lastChapterTitle: meta.lastChapterTitle,
+      updatedAt: _now(),
+      sourceSnapshot: source == null
+          ? meta.sourceSnapshot
+          : jsonEncode(source.toJson()),
+      platformPayload: meta.platformPayload,
+      chapterSyncStatus: WebChapterSyncStatus.synced,
+      chapterSyncError: '',
+      chapterSyncRetryCount: 0,
+      chapterSyncUpdatedAt: _now(),
+    );
+    final persisted = await _replaceStoredChapters(
+      meta: syncedMeta,
+      chapters: deduped.values.toList(growable: false),
+      source: source,
+    );
+    await _deleteChapterSyncTask(meta.id);
+    return persisted;
+  }
+
+  Future<WebChapterContent> persistExternalChapterContent(
+    WebChapterRecord chapter,
+    WebChapterContent content,
+  ) async {
+    final normalized = WebChapterContent(
+      chapterId: chapter.id,
+      sourceId: content.sourceId.trim().isNotEmpty
+          ? content.sourceId
+          : chapter.sourceId,
+      title: content.title.trim().isNotEmpty ? content.title : chapter.title,
+      text: content.text,
+      html: content.html,
+      fetchedAt: content.fetchedAt,
+      isComplete: content.isComplete,
+    );
+    final sizeBytes =
+        utf8.encode(normalized.text).length +
+        utf8.encode(normalized.html).length;
+    final db = await database;
+    await db.insert('web_chapter_cache', {
+      'chapter_id': normalized.chapterId,
+      'source_id': normalized.sourceId,
+      'title': normalized.title,
+      'text': normalized.text,
+      'html': normalized.html,
+      'fetched_at': normalized.fetchedAt.millisecondsSinceEpoch,
+      'is_complete': normalized.isComplete ? 1 : 0,
+      'last_accessed_at': normalized.fetchedAt.millisecondsSinceEpoch,
+      'size_bytes': sizeBytes,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    return normalized;
   }
 
   Future<List<WebChapterRecord>> _ensureSinglePageFallbackChapter({
@@ -2672,6 +2788,16 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       }, conflictAlgorithm: ConflictAlgorithm.replace);
       return content;
     }
+    final platformContent = await _loadPlatformChapterContent(
+      meta: meta,
+      chapter: chapter,
+      chapterIndex: chapterIndex,
+      refresh: refresh,
+    );
+    if (platformContent != null) {
+      return platformContent;
+    }
+
     if (source == null) {
       throw Exception('未找到网文来源');
     }
@@ -2707,6 +2833,49 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
       'size_bytes': sizeBytes,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
     return content;
+  }
+
+  Future<List<WebChapterRecord>?> _loadPlatformChapters(
+    WebNovelBookMeta meta, {
+    required bool refresh,
+  }) async {
+    if (_runtimePlatform != LocalRuntimePlatform.android ||
+        meta.platformPayload.trim().isEmpty) {
+      return null;
+    }
+    final chapters = await _legadoPlatformClient.getChapters(
+      meta.id,
+      meta: meta,
+      refresh: refresh,
+    );
+    if (chapters == null || chapters.isEmpty) {
+      return null;
+    }
+    final source = await _sourceForMeta(meta);
+    return persistExternalChapters(meta, chapters, source: source);
+  }
+
+  Future<WebChapterContent?> _loadPlatformChapterContent({
+    required WebNovelBookMeta meta,
+    required WebChapterRecord chapter,
+    required int chapterIndex,
+    required bool refresh,
+  }) async {
+    if (_runtimePlatform != LocalRuntimePlatform.android ||
+        meta.platformPayload.trim().isEmpty) {
+      return null;
+    }
+    final content = await _legadoPlatformClient.getChapterContent(
+      meta.id,
+      chapterIndex,
+      meta: meta,
+      chapter: chapter,
+      refresh: refresh,
+    );
+    if (content == null) {
+      return null;
+    }
+    return persistExternalChapterContent(chapter, content);
   }
 
   @override
@@ -4446,6 +4615,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
           ? result.description
           : detail.description,
       sourceSnapshot: jsonEncode(source.toJson()),
+      platformPayload: result.platformPayload,
       updatedAt: DateTime.now(),
       chapterSyncStatus: WebChapterSyncStatus.pending,
       chapterSyncError: '',
@@ -4490,6 +4660,7 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
           ? result.description
           : detail.description,
       origin: result.origin,
+      platformPayload: result.platformPayload,
     );
   }
 
@@ -5470,6 +5641,19 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     final ordered = source.chapters.reverse
         ? chapters.reversed.toList()
         : chapters;
+    return _replaceStoredChapters(
+      meta: meta,
+      chapters: ordered,
+      source: source,
+    );
+  }
+
+  Future<List<WebChapterRecord>> _replaceStoredChapters({
+    required WebNovelBookMeta meta,
+    required List<WebChapterRecord> chapters,
+    WebNovelSource? source,
+  }) async {
+    final ordered = chapters.toList(growable: false);
     final db = await database;
     final oldChapterRows = await db.query(
       'web_chapters',
@@ -5598,7 +5782,10 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
             ? meta.lastChapterTitle
             : ordered.last.title,
         updatedAt: DateTime.now(),
-        sourceSnapshot: jsonEncode(source.toJson()),
+        sourceSnapshot: source == null
+            ? meta.sourceSnapshot
+            : jsonEncode(source.toJson()),
+        platformPayload: meta.platformPayload,
         chapterSyncStatus: meta.chapterSyncStatus,
         chapterSyncError: meta.chapterSyncError,
         chapterSyncRetryCount: meta.chapterSyncRetryCount,

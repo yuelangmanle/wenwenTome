@@ -49,16 +49,31 @@ class FoliateHostRuntime {
     );
   }
 
-  static Future<void> _copyAssetIfNeeded(String assetKey, File targetFile) async {
+  static Future<void> _copyAssetIfNeeded(
+    String assetKey,
+    File targetFile,
+  ) async {
     final data = await rootBundle.load(assetKey);
     final bytes = Uint8List.sublistView(data);
     if (await targetFile.exists()) {
-      final stat = await targetFile.stat();
-      if (stat.size == bytes.length) {
+      final existing = await targetFile.readAsBytes();
+      if (_bytesEqual(existing, bytes)) {
         return;
       }
     }
     await targetFile.writeAsBytes(bytes, flush: true);
+  }
+
+  static bool _bytesEqual(Uint8List left, Uint8List right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   static String assetKeyForRelativePath(String relativePath) {

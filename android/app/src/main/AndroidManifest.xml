@@ -32,6 +32,9 @@
 
     <queries>
         <package android:name="com.wenwentome.tts_companion" />
+        <package android:name="io.legado.app" />
+        <package android:name="io.legado.app.debug" />
+        <package android:name="io.legado.app.release" />
         <intent>
             <action android:name="com.wenwentome.tts_companion.START" />
         </intent>

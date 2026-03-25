@@ -87,6 +87,30 @@ body {
     margin: 0 12px;
     visibility: hidden;
 }
+#text-reader {
+    display: none;
+    box-sizing: border-box;
+    height: 100%;
+    overflow-y: auto;
+    padding: 64px 20px 72px;
+}
+#text-reader.show {
+    display: block;
+}
+#text-content {
+    margin: 0 auto;
+    max-width: 860px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+#text-content h1,
+#text-content h2 {
+    line-height: 1.3;
+}
+#text-content .author {
+    margin-bottom: 24px;
+    color: GrayText;
+}
 #side-bar {
     visibility: hidden;
     box-sizing: border-box;
@@ -301,4 +325,7 @@ body {
         </svg>
     </button>
 </div>
+<main id="text-reader" aria-label="Text reader">
+    <article id="text-content"></article>
+</main>
 <script src="wenwen-foliate-host.js" type="module"></script>
