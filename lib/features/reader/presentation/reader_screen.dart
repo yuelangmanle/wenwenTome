@@ -47,6 +47,8 @@ class ReaderScreen extends ConsumerStatefulWidget {
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen>
     with WidgetsBindingObserver {
+  // This screen remains the Flutter reader shell while Android EPUB/TXT
+  // rendering migrates toward a foliate-js-backed content engine.
   static const int _syntheticTextSectionChars = 140000;
   static const int _syntheticTextSectionThreshold = 280000;
   static const int _forceScrollEmergencyLength = 60000000;

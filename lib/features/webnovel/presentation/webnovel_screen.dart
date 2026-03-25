@@ -41,6 +41,8 @@ class WebNovelScreen extends ConsumerStatefulWidget {
 
 class _WebNovelScreenState extends ConsumerState<WebNovelScreen>
     with TickerProviderStateMixin {
+  // This Flutter page remains the webnovel product shell while Android source
+  // parsing and chapter delivery migrate toward Legado integration.
   static const int _autoCacheChapterCount = 20;
   final RunEventTracker _runEventTracker = RunEventTracker();
   final AiSearchService _aiSearchService = AiSearchService();

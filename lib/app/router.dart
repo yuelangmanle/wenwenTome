@@ -73,6 +73,8 @@ GoRouter buildAppRouter({String initialLocation = '/'}) {
       GoRoute(
         path: '/reader',
         builder: (context, state) {
+          // Keep this Flutter route stable while Android reading internals
+          // migrate underneath it to foliate-js.
           final book = state.extra;
           if (book is! Book) {
             return const _RouteErrorScreen(message: '缺少书籍参数，无法打开阅读器。');
@@ -123,6 +125,8 @@ class _AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop =
         detectLocalRuntimePlatform() == LocalRuntimePlatform.windows;
+    // Preserve the Flutter shell and tab layout while the Android reader and
+    // webnovel engines are replaced behind the existing UI.
     final tabs = isDesktop
         ? const <_ShellTab>[
             _ShellTab(
