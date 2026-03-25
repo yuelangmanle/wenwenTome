@@ -44,6 +44,8 @@ tmp/
 tools/
 !tools/ChineseSimplified.isl
 downloads/
+third_party/foliate-js/
+third_party/legado-reference/
 !lib/core/downloads/
 !lib/core/downloads/*.dart
 releases/

@@ -23,6 +23,7 @@ import '../../webnovel/models.dart';
 import '../../webnovel/webnovel_repository.dart';
 import '../android_tts_engine_service.dart';
 import '../book_text_loader.dart';
+import '../engine/reader_engine_plan.dart';
 import '../local_tts_model_manager.dart';
 import '../reader_style.dart';
 import '../providers/reader_settings_provider.dart';
@@ -1186,6 +1187,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       'title': widget.book.title,
       'format': widget.book.format.name,
       'path': widget.book.filePath,
+      'engine_target': ReaderEnginePlan.forBook(
+        format: widget.book.format,
+        platform: detectLocalRuntimePlatform(),
+      ).primary.name,
     };
 
     try {
