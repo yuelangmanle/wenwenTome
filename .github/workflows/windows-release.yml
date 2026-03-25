@@ -1,5 +1,8 @@
 name: windows-release
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
@@ -47,6 +50,13 @@ jobs:
           path: releases/**/*.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish installer to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: releases/**/*.exe
+          fail_on_unmatched_files: true
 
       - name: Upload portable build
         uses: actions/upload-artifact@v4
