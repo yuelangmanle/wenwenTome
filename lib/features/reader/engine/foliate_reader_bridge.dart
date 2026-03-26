@@ -80,9 +80,8 @@ class FoliateReaderBridgeController {
 
   Future<void> waitUntilReady() => _readyCompleter.future;
 
-  Future<void> openEpubFile(String filePath) async {
-    final uri = Uri.file(filePath).toString();
-    await _invoke('window.WenwenReaderHost?.openEpubUrl(${jsonEncode(uri)});');
+  Future<void> openEpubUrl(String url) async {
+    await _invoke('window.WenwenReaderHost?.openEpubUrl(${jsonEncode(url)});');
   }
 
   Future<void> openText({
@@ -212,13 +211,10 @@ class _FoliateReaderBridgeState extends State<FoliateReaderBridge> {
       fit: StackFit.expand,
       children: <Widget>[
         InAppWebView(
-          initialFile: widget.session.entryFile.path,
+          initialUrlRequest: URLRequest(url: WebUri.uri(widget.session.entryUri)),
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             transparentBackground: true,
-            allowFileAccessFromFileURLs: true,
-            allowUniversalAccessFromFileURLs: true,
-            allowFileAccess: true,
             disableHorizontalScroll: false,
             disableVerticalScroll: false,
             useShouldOverrideUrlLoading: false,

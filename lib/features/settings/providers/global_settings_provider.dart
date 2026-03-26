@@ -14,7 +14,7 @@ class GlobalSettings {
     this.autoFetchMeta = true,
     this.translationConfigs = const [],
     this.translationConfigId = '',
-    this.enableWebFallbackInBookSearch = false,
+    this.enableWebFallbackInBookSearch = true,
     this.autoDetectReaderMode = true,
     this.enableAiSearchBoost = false,
     this.aiSourceRepairMode = 'off',
@@ -112,7 +112,7 @@ class GlobalSettingsNotifier extends Notifier<GlobalSettings> {
       translationConfigs: configs,
       translationConfigId: currentConfigId,
       enableWebFallbackInBookSearch:
-          prefs?.getBool('enableWebFallbackInBookSearch') ?? false,
+          prefs?.getBool('enableWebFallbackInBookSearch') ?? true,
       autoDetectReaderMode:
           prefs?.getBool('autoDetectReaderMode') ?? true,
       enableAiSearchBoost: prefs?.getBool('enableAiSearchBoost') ?? false,

@@ -36,9 +36,9 @@ class LegadoBridge(
             "io.legado.app",
         )
         private const val providerSuffix = ".readerProvider"
-        private const val defaultHttpPort = 1122
-        private const val defaultWebSocketPort = 1123
         private const val websocketPath = "searchBook"
+        private val httpPorts = listOf(1234, 1122)
+        private val websocketPorts = listOf(1235, 1123)
     }
 
     private val executor = Executors.newSingleThreadExecutor()
@@ -305,156 +305,181 @@ class LegadoBridge(
         path: String,
         query: Map<String, String> = emptyMap(),
     ): JSONObject? {
-        val builder = Uri.Builder()
-            .scheme("http")
-            .encodedAuthority("127.0.0.1:$defaultHttpPort")
-            .appendPath(path)
-        for ((key, value) in query) {
-            builder.appendQueryParameter(key, value)
-        }
-        val request = Request.Builder().url(builder.build().toString()).get().build()
         val client = OkHttpClient.Builder()
             .connectTimeout(2, TimeUnit.SECONDS)
             .readTimeout(6, TimeUnit.SECONDS)
             .build()
-        return client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                return null
+
+        for (port in httpPorts) {
+            val builder = Uri.Builder()
+                .scheme("http")
+                .encodedAuthority("127.0.0.1:$port")
+                .appendPath(path)
+            for ((key, value) in query) {
+                builder.appendQueryParameter(key, value)
             }
-            val body = response.body?.string()?.trim().orEmpty()
-            if (body.isEmpty() || !body.startsWith("{")) {
-                return null
+            val request = Request.Builder().url(builder.build().toString()).get().build()
+            val payload = runCatching {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@use null
+                    }
+                    val body = response.body?.string()?.trim().orEmpty()
+                    if (body.isEmpty() || !body.startsWith("{")) {
+                        return@use null
+                    }
+                    JSONObject(body)
+                }
+            }.getOrNull()
+            if (payload != null) {
+                return payload
             }
-            JSONObject(body)
         }
+        return null
     }
 
     private fun postJson(
         path: String,
         body: String,
     ): JSONObject? {
-        val request = Request.Builder()
-            .url("http://127.0.0.1:$defaultHttpPort/$path")
-            .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
-            .build()
         val client = OkHttpClient.Builder()
             .connectTimeout(2, TimeUnit.SECONDS)
             .readTimeout(8, TimeUnit.SECONDS)
             .build()
-        return client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                return null
+
+        for (port in httpPorts) {
+            val request = Request.Builder()
+                .url("http://127.0.0.1:$port/$path")
+                .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .build()
+            val payload = runCatching {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@use null
+                    }
+                    val responseBody = response.body?.string()?.trim().orEmpty()
+                    if (responseBody.isEmpty() || !responseBody.startsWith("{")) {
+                        return@use null
+                    }
+                    JSONObject(responseBody)
+                }
+            }.getOrNull()
+            if (payload != null) {
+                return payload
             }
-            val payload = response.body?.string()?.trim().orEmpty()
-            if (payload.isEmpty() || !payload.startsWith("{")) {
-                return null
-            }
-            JSONObject(payload)
         }
+        return null
     }
 
     private fun searchBooksViaWebSocket(query: String): List<Map<String, Any?>>? {
-        val request = Request.Builder()
-            .url("ws://127.0.0.1:$defaultWebSocketPort/$websocketPath")
-            .build()
-        val finished = CountDownLatch(1)
-        val items = mutableListOf<Map<String, Any?>>()
-        var opened = false
-        var failed = false
-        val client = OkHttpClient.Builder()
-            .connectTimeout(2, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build()
-        val webSocket = client.newWebSocket(
-            request,
-            object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    opened = true
-                    webSocket.send(JSONObject(mapOf("key" to query)).toString())
-                }
-
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    if (!text.trim().startsWith("[")) {
-                        return
+        for (port in websocketPorts) {
+            val request = Request.Builder()
+                .url("ws://127.0.0.1:$port/$websocketPath")
+                .build()
+            val finished = CountDownLatch(1)
+            val items = mutableListOf<Map<String, Any?>>()
+            var opened = false
+            var failed = false
+            val client = OkHttpClient.Builder()
+                .connectTimeout(2, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build()
+            val webSocket = client.newWebSocket(
+                request,
+                object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        opened = true
+                        webSocket.send(JSONObject(mapOf("key" to query)).toString())
                     }
-                    val json = JSONArray(text)
-                    for (index in 0 until json.length()) {
-                        val payload = json.optJSONObject(index) ?: continue
-                        val mapped = payload.toSearchResultMap() ?: continue
-                        items.add(mapped)
+
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        if (!text.trim().startsWith("[")) {
+                            return
+                        }
+                        val json = JSONArray(text)
+                        for (index in 0 until json.length()) {
+                            val payload = json.optJSONObject(index) ?: continue
+                            val mapped = payload.toSearchResultMap() ?: continue
+                            items.add(mapped)
+                        }
                     }
-                }
 
-                override fun onClosing(
-                    webSocket: WebSocket,
-                    code: Int,
-                    reason: String,
-                ) {
-                    webSocket.close(code, reason)
-                    finished.countDown()
-                }
+                    override fun onClosing(
+                        webSocket: WebSocket,
+                        code: Int,
+                        reason: String,
+                    ) {
+                        webSocket.close(code, reason)
+                        finished.countDown()
+                    }
 
-                override fun onClosed(
-                    webSocket: WebSocket,
-                    code: Int,
-                    reason: String,
-                ) {
-                    finished.countDown()
-                }
+                    override fun onClosed(
+                        webSocket: WebSocket,
+                        code: Int,
+                        reason: String,
+                    ) {
+                        finished.countDown()
+                    }
 
-                override fun onFailure(
-                    webSocket: WebSocket,
-                    t: Throwable,
-                    response: Response?,
-                ) {
-                    failed = true
-                    finished.countDown()
-                }
-            },
-        )
-        val completed = finished.await(8, TimeUnit.SECONDS)
-        webSocket.cancel()
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
-        if (!completed || failed || !opened || items.isEmpty()) {
-            return null
+                    override fun onFailure(
+                        webSocket: WebSocket,
+                        t: Throwable,
+                        response: Response?,
+                    ) {
+                        failed = true
+                        finished.countDown()
+                    }
+                },
+            )
+            val completed = finished.await(8, TimeUnit.SECONDS)
+            webSocket.cancel()
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+            if (completed && !failed && opened && items.isNotEmpty()) {
+                return items
+            }
         }
-        return items
+        return null
     }
 
     private fun probeSearchWebSocket(): Boolean {
-        val request = Request.Builder()
-            .url("ws://127.0.0.1:$defaultWebSocketPort/$websocketPath")
-            .build()
-        val finished = CountDownLatch(1)
-        var opened = false
-        val client = OkHttpClient.Builder()
-            .connectTimeout(2, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build()
-        val socket = client.newWebSocket(
-            request,
-            object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    opened = true
-                    webSocket.close(1000, "probe")
-                    finished.countDown()
-                }
+        for (port in websocketPorts) {
+            val request = Request.Builder()
+                .url("ws://127.0.0.1:$port/$websocketPath")
+                .build()
+            val finished = CountDownLatch(1)
+            var opened = false
+            val client = OkHttpClient.Builder()
+                .connectTimeout(2, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build()
+            val socket = client.newWebSocket(
+                request,
+                object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        opened = true
+                        webSocket.close(1000, "probe")
+                        finished.countDown()
+                    }
 
-                override fun onFailure(
-                    webSocket: WebSocket,
-                    t: Throwable,
-                    response: Response?,
-                ) {
-                    finished.countDown()
-                }
-            },
-        )
-        finished.await(3, TimeUnit.SECONDS)
-        socket.cancel()
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
-        return opened
+                    override fun onFailure(
+                        webSocket: WebSocket,
+                        t: Throwable,
+                        response: Response?,
+                    ) {
+                        finished.countDown()
+                    }
+                },
+            )
+            finished.await(3, TimeUnit.SECONDS)
+            socket.cancel()
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+            if (opened) {
+                return true
+            }
+        }
+        return false
     }
 }
 

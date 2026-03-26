@@ -1204,7 +1204,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final requestId = ++_foliateOpenRequestId;
     try {
       if (resolved.format == BookFormat.epub) {
-        await _foliateBridgeController.openEpubFile(resolved.filePath);
+        final session = _foliateRuntimeSession;
+        if (session == null) {
+          throw StateError('foliate runtime session is missing');
+        }
+        final bookUrl = await session.registerBookFileUrl(resolved.filePath);
+        await _foliateBridgeController.openEpubUrl(bookUrl);
       } else if (resolved.format == BookFormat.txt) {
         await _foliateBridgeController.openText(
           title: resolved.title,

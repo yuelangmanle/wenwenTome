@@ -27,10 +27,10 @@ class ReaderEnginePlan {
     if (platform == LocalRuntimePlatform.android &&
         (format == BookFormat.epub || format == BookFormat.txt)) {
       return const ReaderEnginePlan(
-        primary: ReaderEngineKind.legacyFlutter,
-        migrationPhase: 'paused',
+        primary: ReaderEngineKind.foliateJs,
+        migrationPhase: 'embedded_host',
         notes:
-            'Android local-book reading stays on the legacy Flutter reader until the foliate-js host is production-ready.',
+            'Android local-book reading uses the embedded foliate-js host served from localhost.',
       );
     }
 
