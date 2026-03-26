@@ -4079,12 +4079,75 @@ class WebNovelRepository implements WebNovelRepositoryHandle {
     final budget = detectLocalRuntimePlatform() == LocalRuntimePlatform.android
         ? _mobileDirectSearchBudget
         : _allSourcesDirectSearchBudget;
-    if (sources.length <= budget) {
-      return sources;
+    final runnable = sources
+        .where(_isLikelyRunnableDirectSearchSource)
+        .toList(growable: false);
+    final pool = runnable.isEmpty ? sources : runnable;
+    if (pool.length <= budget) {
+      return pool;
     }
-    final ranked = List<WebNovelSource>.from(sources)
+
+    final ranked = List<WebNovelSource>.from(pool)
       ..sort((a, b) => _compareDirectSearchPriority(b, a));
-    return ranked.take(budget).toList(growable: false);
+
+    if (detectLocalRuntimePlatform() != LocalRuntimePlatform.android) {
+      return ranked.take(budget).toList(growable: false);
+    }
+
+    final builtins = ranked.where((source) => source.builtin).toList(
+      growable: false,
+    );
+    final customs = ranked.where((source) => !source.builtin).toList(
+      growable: false,
+    );
+    final selected = <WebNovelSource>[];
+
+    // On Android, prefer the curated builtin sources first. The imported
+    // Legado mega-pack contains many partially translated rules that import
+    // successfully but are not stable enough to lead the default search path.
+    final builtinBudget = builtins.isEmpty ? 0 : budget.clamp(0, 8);
+    selected.addAll(builtins.take(builtinBudget));
+
+    for (final source in customs) {
+      if (selected.length >= budget) {
+        break;
+      }
+      selected.add(source);
+    }
+    for (final source in builtins.skip(builtinBudget)) {
+      if (selected.length >= budget) {
+        break;
+      }
+      selected.add(source);
+    }
+    return selected;
+  }
+
+  bool _isLikelyRunnableDirectSearchSource(WebNovelSource source) {
+    if (source.builtin) {
+      return true;
+    }
+    final baseUri = Uri.tryParse(source.baseUrl);
+    final hasHttpBase =
+        baseUri != null &&
+        (baseUri.scheme == 'http' || baseUri.scheme == 'https') &&
+        baseUri.host.isNotEmpty;
+    final path = source.search.pathTemplate.trim();
+    final pathLooksRunnable =
+        path.isEmpty ||
+        path.startsWith('/') ||
+        path.startsWith('http://') ||
+        path.startsWith('https://');
+    if (!pathLooksRunnable) {
+      return false;
+    }
+    if (path.contains('<js>') ||
+        path.contains('@js:') ||
+        path.contains('@json:') ||
+        path.contains(r'$.')) {
+      return false;
+    }
+    return hasHttpBase || source.siteDomains.isNotEmpty;
   }
 
   int _compareDirectSearchPriority(WebNovelSource left, WebNovelSource right) {
