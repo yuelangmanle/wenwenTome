@@ -22,22 +22,25 @@ class ReaderEnginePlan {
     required BookFormat format,
     required LocalRuntimePlatform platform,
   }) {
-    final isAndroid = platform == LocalRuntimePlatform.android;
     final isWindows = platform == LocalRuntimePlatform.windows;
 
-    if (isAndroid && (format == BookFormat.epub || format == BookFormat.txt)) {
+    if (platform == LocalRuntimePlatform.android &&
+        (format == BookFormat.epub || format == BookFormat.txt)) {
       return const ReaderEnginePlan(
-        primary: ReaderEngineKind.foliateJs,
-        migrationPhase: 'approved',
-        notes: 'Android local-book reading is migrating to foliate-js.',
+        primary: ReaderEngineKind.legacyFlutter,
+        migrationPhase: 'paused',
+        notes:
+            'Android local-book reading stays on the legacy Flutter reader until the foliate-js host is production-ready.',
       );
     }
 
-    if (isAndroid && format == BookFormat.webnovel) {
+    if (platform == LocalRuntimePlatform.android &&
+        format == BookFormat.webnovel) {
       return const ReaderEnginePlan(
-        primary: ReaderEngineKind.legadoIntegration,
-        migrationPhase: 'approved',
-        notes: 'Android webnovel capability is migrating to Legado integration.',
+        primary: ReaderEngineKind.legacyFlutter,
+        migrationPhase: 'paused',
+        notes:
+            'Android webnovel stays on the in-app repository until Legado integration no longer depends on an external app/service.',
       );
     }
 
