@@ -2,6 +2,14 @@
 
 本文件记录近期可交付版本的主要变化。
 
+## [2.7.4] - 2026-03-26 「版本口径校正」
+### 修复与优化
+- 修复 Windows 发布链路的版本漂移：`setup.iss` 与 `version.json` 重新对齐到当前应用版本，避免 Release 页挂出旧版文件名。
+- Windows tag 发布工作流新增版本元数据校验，发布前强制校验 `pubspec.yaml / version.json / setup.iss / CHANGELOG.md` 一致性。
+
+### 发布说明
+- 本次为 `v2.7.3` 的发布纠正版本，不改变前一版 Android 功能，只修复发布口径与 Windows 安装包命名。
+
 ## [2.7.1] - 2026-03-25 「云端发布收尾」
 ### 修复与优化
 - 修复翻译状态 provider 与当前 Riverpod / TranslationService 接口不匹配导致的编译错误，恢复全量分析可通过状态。

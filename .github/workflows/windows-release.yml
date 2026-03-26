@@ -37,6 +37,10 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Validate release metadata
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: .\scripts\release_check.ps1 -SkipAnalyze -SkipTest -SkipAndroid -SkipWindows
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 

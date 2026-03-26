@@ -1,10 +1,10 @@
 ﻿{
-  "version": "2.7.1",
-  "buildNumber": 41,
-  "releaseDate": "2026-03-25",
-  "codename": "云端发布收尾",
+  "version": "2.7.4",
+  "buildNumber": 44,
+  "releaseDate": "2026-03-26",
+  "codename": "版本口径校正",
   "platform": {
-    "windows": "2.7.1+41",
-    "android": "2.7.1+41"
+    "windows": "2.7.4+44",
+    "android": "2.7.4+44"
   }
 }
